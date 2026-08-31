@@ -1,0 +1,16 @@
+﻿version: '3.8'
+
+services:
+  cryptotrader:
+    build: .
+    container_name: deepseek_cryptotrader
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
