@@ -23,12 +23,12 @@
   <!-- Custom Stylesheet -->
   <link rel="stylesheet" href="/style.css">
 </head>
-<body class="bg-[#07090e] text-[#f0f4f8] antialiased select-none min-h-screen pb-12 font-sans">
+<body class="bg-[#07090e] text-[#f0f4f8] antialiased select-none min-h-screen font-sans">
 
   <!-- ============================================================== -->
-  <!-- CLEAN TOP BAR -->
+  <!-- TOP APP HEADER -->
   <!-- ============================================================== -->
-  <header class="top-header px-4 py-3 flex items-center justify-between border-b border-[#151c2c]">
+  <header class="top-header px-4 py-2.5 flex items-center justify-between">
     <div class="flex items-center gap-2.5">
       <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#00f2fe] to-[#00f59b] flex items-center justify-center shadow-[0_0_12px_rgba(0,242,254,0.3)]">
         <i data-lucide="zap" class="w-4 h-4 text-black"></i>
@@ -39,170 +39,278 @@
           <span class="w-1.5 h-1.5 rounded-full bg-[#00f59b] pulse-dot"></span>
           <span id="binanceWsStatus" class="text-[#00f59b]">Binance Futures</span>
           <span>•</span>
-          <span class="text-[#8899a6]">SQLite DB</span>
+          <span class="text-[#8899a6]">SQLite</span>
         </div>
       </div>
     </div>
 
-    <!-- Actions -->
-    <div class="flex items-center gap-2">
-      <button onclick="resetPaperWallet()" title="Reiniciar Balance" class="p-2 rounded-xl bg-[#0f1422] border border-[#1b2337] text-[#8899a6] hover:text-[#ffd166] transition-colors">
-        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-      </button>
-      <button onclick="openSettingsModal()" class="p-2 rounded-xl bg-[#0f1422] border border-[#1b2337] text-[#8899a6] hover:text-white transition-colors">
-        <i data-lucide="sliders" class="w-4 h-4 text-[#00f2fe]"></i>
-      </button>
+    <!-- Quick Live Status Badge -->
+    <div class="flex items-center gap-2 bg-[#0d121e] px-2.5 py-1 rounded-xl border border-[#172033]">
+      <span class="text-[9px] text-[#8899a6] block uppercase font-bold">Ganancia</span>
+      <span id="statTotalProfitHeader" class="font-mono font-extrabold text-xs text-[#00f59b]">+$0.00</span>
     </div>
   </header>
 
   <!-- ============================================================== -->
-  <!-- MAIN CLEAN MOBILE CONTAINER -->
+  <!-- MAIN APP VIEWS CONTAINER -->
   <!-- ============================================================== -->
-  <main class="px-3.5 py-4 max-w-md mx-auto space-y-4">
+  <main class="px-3.5 py-3.5 max-w-md mx-auto">
 
-    <!-- 1. ACCOUNT HERO CARD (Minimalist & High Impact) -->
-    <div class="card p-4 bg-gradient-to-b from-[#0f1523] to-[#0a0e18] border-[#1c263c] shadow-lg">
-      <div class="flex items-center justify-between mb-1">
-        <span class="text-xs font-semibold text-[#8899a6]">Total Equity</span>
-        <div class="flex items-center gap-1.5">
-          <span class="text-[11px] font-mono font-bold text-[#8899a6]">Auto-IA</span>
-          <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="autoPilotToggle" checked class="sr-only peer">
-            <div class="w-9 h-5 bg-[#1a2336] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#00f59b]"></div>
-          </label>
+    <!-- ============================================================ -->
+    <!-- MODULE 1: OPERACIONES (Dashboard & Live Trades) -->
+    <!-- ============================================================ -->
+    <section id="view-trades" class="app-view active space-y-3.5">
+      <!-- Account Hero Card -->
+      <div class="card p-4 bg-gradient-to-b from-[#0f1523] to-[#0a0e18] border-[#1c263c] shadow-lg">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-semibold text-[#8899a6]">Total Equity</span>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[11px] font-mono font-bold text-[#8899a6]">Auto-IA</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="autoPilotToggle" checked class="sr-only peer">
+              <div class="w-9 h-5 bg-[#1a2336] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#00f59b]"></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Big Balance Display -->
+        <div class="flex items-baseline gap-2 mb-3">
+          <span id="walletEquity" class="font-mono font-black text-2xl sm:text-3xl text-white tracking-tight">$1,000.00</span>
+          <span id="walletEquityProfitTag" class="font-mono font-extrabold text-xs text-[#00f59b]">+$0.00</span>
+        </div>
+
+        <!-- Goal Progress Bar -->
+        <div class="bg-[#07090e] p-2.5 rounded-xl border border-[#172033] mb-3">
+          <div class="flex items-center justify-between text-[11px] font-mono mb-1.5">
+            <span class="text-[#8899a6]">🎯 Meta de Ganancia</span>
+            <span id="globalGoalAmount" class="font-bold text-[#00f59b]">+$0.00 / $10.00</span>
+          </div>
+          <div class="w-full h-2 bg-[#121929] rounded-full overflow-hidden">
+            <div id="globalGoalProgressBar" class="h-full bg-gradient-to-r from-[#00f2fe] to-[#00f59b] transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Metric Details -->
+        <div class="grid grid-cols-3 gap-2 pt-1 border-t border-[#151c2c] text-center font-mono">
+          <div>
+            <span class="text-[10px] text-[#6b7c93] block">Balance</span>
+            <span id="walletBalance" class="text-xs font-bold text-white">$1,000.00</span>
+          </div>
+          <div>
+            <span class="text-[10px] text-[#6b7c93] block">Margen Disp.</span>
+            <span id="walletAvailableMargin" class="text-xs font-bold text-[#00f2fe]">$900.00</span>
+          </div>
+          <div>
+            <span class="text-[10px] text-[#6b7c93] block">Acierto</span>
+            <span id="walletWinRate" class="text-xs font-bold text-[#ffd166]">0.0%</span>
+          </div>
         </div>
       </div>
 
-      <!-- Main Balance Number -->
-      <div class="flex items-baseline gap-2 mb-3">
-        <span id="walletEquity" class="font-mono font-black text-2xl sm:text-3xl text-white tracking-tight">$1,000.00</span>
-        <span id="statTotalProfitHeader" class="font-mono font-extrabold text-sm text-[#00f59b]">+$0.00</span>
-      </div>
+      <!-- Quick AI Scan Trigger Button -->
+      <button onclick="triggerAiScan()" class="btn-primary w-full py-2.5 px-4 text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md">
+        <i data-lucide="sparkles" class="w-4 h-4"></i>
+        <span>Escanear Oportunidad con DeepSeek</span>
+      </button>
 
-      <!-- Goal Progress Bar -->
-      <div class="bg-[#07090e] p-2.5 rounded-xl border border-[#172033] mb-3">
-        <div class="flex items-center justify-between text-[11px] font-mono mb-1.5">
-          <span class="text-[#8899a6]">🎯 Meta de Ganancia</span>
-          <span id="globalGoalAmount" class="font-bold text-[#00f59b]">+$0.00 / $10.00</span>
+      <!-- Active Open Trades Section -->
+      <div class="space-y-2.5 pt-1">
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center gap-1.5">
+            <i data-lucide="activity" class="w-4 h-4 text-[#00f2fe]"></i>
+            <h2 class="font-extrabold text-xs uppercase tracking-wider text-white">Operaciones Activas</h2>
+          </div>
+          <span id="openPositionsBadge" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#00f2fe]/15 text-[#00f2fe] border border-[#00f2fe]/30">
+            0 Activas
+          </span>
         </div>
-        <div class="w-full h-2 bg-[#121929] rounded-full overflow-hidden">
-          <div id="globalGoalProgressBar" class="h-full bg-gradient-to-r from-[#00f2fe] to-[#00f59b] transition-all duration-500" style="width: 0%"></div>
-        </div>
-      </div>
 
-      <!-- Quick Metrics Row -->
-      <div class="grid grid-cols-3 gap-2 pt-1 border-t border-[#151c2c] text-center font-mono">
-        <div>
-          <span class="text-[10px] text-[#6b7c93] block">Balance</span>
-          <span id="walletBalance" class="text-xs font-bold text-white">$1,000.00</span>
-        </div>
-        <div>
-          <span class="text-[10px] text-[#6b7c93] block">Margen Disp.</span>
-          <span id="walletAvailableMargin" class="text-xs font-bold text-[#00f2fe]">$900.00</span>
-        </div>
-        <div>
-          <span class="text-[10px] text-[#6b7c93] block">Acierto</span>
-          <span id="walletWinRate" class="text-xs font-bold text-[#ffd166]">0.0%</span>
+        <!-- Live Positions Cards Container -->
+        <div id="livePositionsContainer" class="space-y-2.5">
+          <!-- Rendered dynamically -->
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Quick AI Scan Trigger Button -->
-    <button id="btnScanNow" class="btn-primary w-full py-2.5 px-4 text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md">
-      <i data-lucide="sparkles" class="w-4 h-4"></i>
-      <span>Escanear Mercado con DeepSeek</span>
-    </button>
-
-    <!-- 2. OPERACIONES ACTIVAS EN VIVO -->
-    <div class="space-y-2.5">
+    <!-- ============================================================ -->
+    <!-- MODULE 2: ALERTAS (AI Signals & Live Event Logs) -->
+    <!-- ============================================================ -->
+    <section id="view-alerts" class="app-view space-y-3.5">
+      <!-- Section Header -->
       <div class="flex items-center justify-between px-1">
-        <div class="flex items-center gap-1.5">
-          <i data-lucide="activity" class="w-4 h-4 text-[#00f2fe]"></i>
-          <h2 class="font-extrabold text-xs uppercase tracking-wider text-white">Operaciones Activas</h2>
+        <div class="flex items-center gap-2">
+          <i data-lucide="brain" class="w-4 h-4 text-[#00f2fe]"></i>
+          <h2 class="font-extrabold text-xs uppercase tracking-wider text-white">Análisis & Señales DeepSeek</h2>
         </div>
-        <span id="openPositionsBadge" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#00f2fe]/15 text-[#00f2fe] border border-[#00f2fe]/30">
-          0 Activas
+        <span class="text-[10px] text-[#00f59b] font-mono font-bold flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#00f59b] pulse-dot"></span> EN VIVO
         </span>
       </div>
 
-      <!-- Container of Active Cards -->
-      <div id="livePositionsContainer" class="space-y-2.5">
-        <!-- Rendered dynamically -->
+      <!-- Latest AI Signal Card -->
+      <div id="aiSignalCardAlerts" class="card p-4 bg-[#0d121e] border-[#1c263c]">
+        <!-- Rendered dynamically by app.js -->
       </div>
-    </div>
 
-    <!-- 3. HISTORIAL DE OPERACIONES (SQLite DB) -->
-    <div class="space-y-2.5 pt-2">
+      <!-- Real-time Telegram Notifications Status Card -->
+      <div class="card p-3.5 bg-[#0d121e] border-[#172033] flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg bg-[#ffd166]/15 flex items-center justify-center">
+            <i data-lucide="send" class="w-4 h-4 text-[#ffd166]"></i>
+          </div>
+          <div>
+            <h4 class="text-xs font-bold text-white">Alertas Telegram</h4>
+            <p class="text-[10px] text-[#8899a6]">Notificaciones al móvil en aperturas y TP/SL</p>
+          </div>
+        </div>
+        <button onclick="testTelegram()" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-[#182136] hover:bg-[#202c46] text-white border border-[#263552]">
+          Probar
+        </button>
+      </div>
+
+      <!-- Live Stream of Triggers & Decision Events -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between px-1">
+          <span class="text-xs font-bold text-[#8899a6] uppercase tracking-wider">Historial de Eventos</span>
+          <span class="text-[10px] text-[#6b7c93] font-mono">Últimos eventos</span>
+        </div>
+        <div id="systemLogsContainer" class="terminal-box p-3 max-h-[280px] overflow-y-auto space-y-1.5">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- MODULE 3: HISTORIAL (Closed Trades & SQLite Database) -->
+    <!-- ============================================================ -->
+    <section id="view-history" class="app-view space-y-3.5">
       <div class="flex items-center justify-between px-1">
         <div class="flex items-center gap-1.5">
           <i data-lucide="history" class="w-4 h-4 text-[#00f59b]"></i>
-          <h2 class="font-extrabold text-xs uppercase tracking-wider text-white">Historial de Ganancias</h2>
+          <h2 class="font-extrabold text-xs uppercase tracking-wider text-white">Historial de Operaciones</h2>
         </div>
         <span class="text-[10px] font-mono text-[#6b7c93]">
-          Total: <b id="statTotalTrades" class="text-white">0</b> trades
+          Guardado en <b class="text-[#00f2fe]">SQLite DB</b>
         </span>
+      </div>
+
+      <!-- Performance Ribbon -->
+      <div class="card p-3.5 bg-[#0d121e] border-[#172033] grid grid-cols-3 gap-2 text-center font-mono">
+        <div>
+          <span class="text-[10px] text-[#6b7c93] block">Trades Totales</span>
+          <span id="statHistoryTotalTrades" class="text-xs font-bold text-white">0</span>
+        </div>
+        <div>
+          <span class="text-[10px] text-[#6b7c93] block">Tasa Acierto</span>
+          <span id="statHistoryWinRate" class="text-xs font-bold text-[#ffd166]">0.0%</span>
+        </div>
+        <div>
+          <span class="text-[10px] text-[#6b7c93] block">Ganancia Neta</span>
+          <span id="statHistoryTotalProfit" class="text-xs font-bold text-[#00f59b]">+$0.00</span>
+        </div>
       </div>
 
       <!-- Container of Closed Trades Cards -->
       <div id="tradeHistoryContainer" class="space-y-2">
-        <!-- Rendered dynamically -->
+        <!-- Rendered dynamically by app.js -->
       </div>
-    </div>
+    </section>
 
-  </main>
-
-  <!-- ============================================================== -->
-  <!-- SETTINGS MODAL -->
-  <!-- ============================================================== -->
-  <div id="settingsModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 modal-backdrop hidden">
-    <div class="bg-[#0f1422] border border-[#1e273d] rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5 shadow-2xl relative">
-      <div class="flex items-center justify-between mb-4 pb-2 border-b border-[#182136]">
-        <div class="flex items-center gap-2">
+    <!-- ============================================================ -->
+    <!-- MODULE 4: AJUSTES (Configuration & API Keys) -->
+    <!-- ============================================================ -->
+    <section id="view-settings" class="app-view space-y-3.5">
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center gap-1.5">
           <i data-lucide="sliders" class="w-4 h-4 text-[#00f2fe]"></i>
-          <h3 class="font-extrabold text-sm text-white">Configuración</h3>
+          <h2 class="font-extrabold text-xs uppercase tracking-wider text-white">Configuración del Bot</h2>
         </div>
-        <button onclick="closeSettingsModal()" class="text-[#8899a6] hover:text-white text-xl font-bold p-1">&times;</button>
+        <span class="text-[10px] text-[#8899a6] font-mono">v1.2</span>
       </div>
 
-      <div class="space-y-3.5">
+      <!-- Settings Card -->
+      <div class="card p-4 bg-[#0d121e] border-[#172033] space-y-3.5">
         <!-- DeepSeek API Key -->
-        <div class="bg-[#07090e] p-3 rounded-xl border border-[#172033]">
-          <label class="text-[11px] font-bold text-[#00f2fe] block mb-1">DeepSeek API Key</label>
-          <input type="password" id="inputDeepSeekKey" placeholder="sk-..." class="w-full bg-[#0f1422] border border-[#1e273d] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-[#00f2fe] focus:outline-none">
+        <div>
+          <label class="text-[11px] font-bold text-[#00f2fe] block mb-1">Clave de API DeepSeek (IA)</label>
+          <input type="password" id="inputDeepSeekKey" placeholder="sk-..." class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-[#00f2fe] focus:outline-none">
         </div>
 
-        <!-- Strategy Target -->
-        <div class="bg-[#07090e] p-3 rounded-xl border border-[#172033] grid grid-cols-2 gap-2">
+        <!-- DeepSeek Model -->
+        <div>
+          <label class="text-[11px] font-bold text-[#8899a6] block mb-1">Modelo de IA</label>
+          <select id="selectDeepSeekModel" class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-[#00f2fe] focus:outline-none">
+            <option value="deepseek-chat">deepseek-chat (V3 - Rápido y preciso)</option>
+            <option value="deepseek-reasoner">deepseek-reasoner (R1 - Razonamiento profundo)</option>
+          </select>
+        </div>
+
+        <!-- Strategy Parameters -->
+        <div class="grid grid-cols-2 gap-2.5 pt-1">
           <div>
-            <label class="text-[10px] text-[#8899a6] block mb-1">Meta Total ($)</label>
-            <input type="number" id="inputTargetProfit" value="10.0" min="1" step="1" class="w-full bg-[#0f1422] border border-[#1e273d] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
+            <label class="text-[10px] text-[#8899a6] block mb-1 font-semibold">Meta Total ($)</label>
+            <input type="number" id="inputTargetProfit" value="10.0" min="1" step="1" class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-3 py-2 text-xs text-white font-mono">
           </div>
           <div>
-            <label class="text-[10px] text-[#8899a6] block mb-1">Margen (% Capital)</label>
-            <input type="number" id="inputRiskPercent" value="5" min="1" max="15" class="w-full bg-[#0f1422] border border-[#1e273d] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
+            <label class="text-[10px] text-[#8899a6] block mb-1 font-semibold">Margen (% Capital)</label>
+            <input type="number" id="inputRiskPercent" value="5" min="1" max="15" class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-3 py-2 text-xs text-white font-mono">
           </div>
         </div>
 
         <!-- Telegram Notifications -->
-        <div class="bg-[#07090e] p-3 rounded-xl border border-[#172033] space-y-2">
+        <div class="pt-2 border-t border-[#172033] space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold text-[#ffd166]">Alertas por Telegram</span>
-            <input type="checkbox" id="checkboxTelegramEnabled" class="accent-[#ffd166]">
+            <input type="checkbox" id="checkboxTelegramEnabled" class="accent-[#ffd166] scale-110">
           </div>
-          <input type="password" id="inputTelegramToken" placeholder="Bot Token" class="w-full bg-[#0f1422] border border-[#1e273d] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
-          <input type="text" id="inputTelegramChatId" placeholder="Chat ID" class="w-full bg-[#0f1422] border border-[#1e273d] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
+          <input type="password" id="inputTelegramToken" placeholder="Telegram Bot Token" class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-3 py-2 text-xs text-white font-mono">
+          <input type="text" id="inputTelegramChatId" placeholder="Telegram Chat ID" class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-3 py-2 text-xs text-white font-mono">
         </div>
+
+        <!-- Save Button -->
+        <button onclick="saveSettings()" class="btn-primary w-full py-2.5 text-xs font-extrabold uppercase mt-2">
+          Guardar Configuración
+        </button>
       </div>
 
-      <div class="flex items-center justify-end gap-2 mt-5">
-        <button onclick="closeSettingsModal()" class="px-3 py-2 rounded-lg bg-[#182136] text-[#8899a6] hover:text-white text-xs font-bold">Cancelar</button>
-        <button onclick="saveSettings()" class="btn-primary px-4 py-2 rounded-lg text-xs font-extrabold uppercase">Guardar</button>
+      <!-- Reset Wallet Danger Zone -->
+      <div class="card p-3.5 bg-[#140b0f] border-[#33171d] flex items-center justify-between">
+        <div>
+          <h4 class="text-xs font-bold text-[#ff4d6d]">Reiniciar Billetera</h4>
+          <p class="text-[10px] text-[#8899a6]">Restaura el balance a $1,000 USDT</p>
+        </div>
+        <button onclick="resetPaperWallet()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#ff4d6d]/20 text-[#ff4d6d] hover:bg-[#ff4d6d] hover:text-white transition-all">
+          Reiniciar
+        </button>
       </div>
-    </div>
-  </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================================== -->
+  <!-- MOBILE BOTTOM NAVIGATION BAR (4 MODULES) -->
+  <!-- ============================================================== -->
+  <nav class="bottom-nav">
+    <button onclick="navigateToTab('view-trades')" id="nav-btn-trades" class="nav-tab-item active">
+      <i data-lucide="layout-dashboard" class="nav-icon"></i>
+      <span>Operaciones</span>
+    </button>
+    <button onclick="navigateToTab('view-alerts')" id="nav-btn-alerts" class="nav-tab-item">
+      <i data-lucide="bell" class="nav-icon"></i>
+      <span>Alertas</span>
+    </button>
+    <button onclick="navigateToTab('view-history')" id="nav-btn-history" class="nav-tab-item">
+      <i data-lucide="history" class="nav-icon"></i>
+      <span>Historial</span>
+    </button>
+    <button onclick="navigateToTab('view-settings')" id="nav-btn-settings" class="nav-tab-item">
+      <i data-lucide="sliders" class="nav-icon"></i>
+      <span>Ajustes</span>
+    </button>
+  </nav>
 
   <!-- Toast Notification Container -->
-  <div id="toastContainer" class="fixed bottom-4 right-3 left-3 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none max-w-sm"></div>
+  <div id="toastContainer" class="fixed bottom-20 right-3 left-3 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none max-w-sm"></div>
 
   <!-- App Script -->
   <script src="/app.js"></script>

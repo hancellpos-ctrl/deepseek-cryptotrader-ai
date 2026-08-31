@@ -1,5 +1,5 @@
 ﻿/**
- * CryptoTrader AI - Minimalist Mobile Web App
+ * CryptoTrader AI - 4 Module Mobile Web App & PWA
  */
 
 const state = {
@@ -17,14 +17,17 @@ const state = {
     winRate: 0,
     tradeHistory: []
   },
+  latestAiSignal: null,
+  logs: [],
   autoPilot: true,
   config: {},
-  isScanning: false
+  isScanning: false,
+  activeTab: 'view-trades'
 };
 
 let ws = null;
 
-// Register Service Worker
+// Register PWA Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -38,7 +41,43 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ----------------------------------------------------
-// WEBSOCKET
+// TAB NAVIGATION (4 MODULES)
+// ----------------------------------------------------
+function navigateToTab(tabId) {
+  state.activeTab = tabId;
+
+  // 1. Hide all views and show target
+  document.querySelectorAll('.app-view').forEach(view => {
+    view.classList.remove('active');
+  });
+  const targetView = document.getElementById(tabId);
+  if (targetView) targetView.classList.add('active');
+
+  // 2. Update Bottom Nav active states
+  const tabMap = {
+    'view-trades': 'nav-btn-trades',
+    'view-alerts': 'nav-btn-alerts',
+    'view-history': 'nav-btn-history',
+    'view-settings': 'nav-btn-settings'
+  };
+
+  ['nav-btn-trades', 'nav-btn-alerts', 'nav-btn-history', 'nav-btn-settings'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.remove('active');
+  });
+
+  const activeBtn = document.getElementById(tabMap[tabId]);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  // 3. Re-render icons
+  if (window.lucide) lucide.createIcons();
+
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ----------------------------------------------------
+// WEBSOCKET REAL-TIME CLIENT
 // ----------------------------------------------------
 function initWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -70,6 +109,9 @@ function handleWebSocketMessage(msg) {
       state.config = data.config || {};
       state.wallet = data.wallet || state.wallet;
       state.autoPilot = state.config.autoPilot !== undefined ? state.config.autoPilot : true;
+      if (data.autoTraderStatus?.logs) {
+        state.logs = data.autoTraderStatus.logs;
+      }
       renderAll();
       break;
 
@@ -84,8 +126,19 @@ function handleWebSocketMessage(msg) {
       renderHistory();
       break;
 
+    case 'AI_ANALYSIS_RESULT':
+      state.latestAiSignal = data;
+      renderAiAlertCard();
+      break;
+
+    case 'AUTO_TRADER_LOG':
+      state.logs.unshift(data);
+      if (state.logs.length > 50) state.logs.pop();
+      renderLogs();
+      break;
+
     case 'POSITION_OPENED':
-      showToast(`⚡ IA Abrió: ${data.side} ${data.symbol} @ $${formatPrice(data.entryPrice)}`, 'info');
+      showToast(`⚡ IA Abrió: ${data.side} #${data.symbol} @ $${formatPrice(data.entryPrice)}`, 'info');
       break;
 
     case 'POSITION_CLOSED':
@@ -107,7 +160,6 @@ function handleWebSocketMessage(msg) {
 function handlePricesTick(priceMap) {
   state.prices = { ...state.prices, ...priceMap };
 
-  // Update open positions floating PnL live
   if (state.wallet.positions && state.wallet.positions.length > 0) {
     let changed = false;
     state.wallet.positions.forEach(pos => {
@@ -145,14 +197,14 @@ async function fetchInitialData() {
       renderAll();
     }
   } catch (err) {
-    console.error('Error fetching status:', err);
+    console.error('Error fetching initial status:', err);
   }
 }
 
 async function triggerAiScan() {
   if (state.isScanning) return;
   state.isScanning = true;
-  showToast('🧠 DeepSeek escaneando confluencias técnicas...', 'info');
+  showToast('🧠 DeepSeek escaneando el mercado...', 'info');
 
   try {
     const res = await fetch('/api/analyze', {
@@ -162,8 +214,9 @@ async function triggerAiScan() {
     });
     const data = await res.json();
     if (data.success) {
-      const sig = data.analysis;
-      showToast(`Análisis completado: ${sig.signal} (${sig.confidence}%)`, 'success');
+      state.latestAiSignal = data.analysis;
+      renderAiAlertCard();
+      showToast(`Señal DeepSeek: ${data.analysis.signal} (${data.analysis.confidence}%)`, 'success');
     } else {
       showToast('Error en análisis: ' + data.error, 'danger');
     }
@@ -183,7 +236,7 @@ async function closePosition(positionId) {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('Posición cerrada', 'info');
+      showToast('Posición cerrada con éxito', 'info');
     } else {
       showToast('Error al cerrar: ' + data.error, 'danger');
     }
@@ -212,7 +265,7 @@ async function toggleAutoPilot() {
 }
 
 async function resetPaperWallet() {
-  if (!confirm('¿Reiniciar balance a $1,000 USDT?')) return;
+  if (!confirm('¿Reiniciar balance a $1,000 USDT y limpiar historial en SQLite?')) return;
   try {
     const res = await fetch('/api/wallet/reset', {
       method: 'POST',
@@ -231,11 +284,13 @@ async function resetPaperWallet() {
 }
 
 // ----------------------------------------------------
-// RENDERING
+// UI RENDERING
 // ----------------------------------------------------
 function renderAll() {
   renderWallet();
   renderPositions();
+  renderAiAlertCard();
+  renderLogs();
   renderHistory();
   renderConfig();
   if (window.lucide) lucide.createIcons();
@@ -244,7 +299,6 @@ function renderAll() {
 function renderWallet() {
   const w = state.wallet;
   
-  // Total Net Profit
   const totalRealized = w.tradeHistory ? w.tradeHistory.reduce((acc, t) => acc + (t.realizedPnL || 0), 0) : 0;
   const netProfit = Number((totalRealized + (w.unrealizedPnL || 0)).toFixed(2));
   const sign = netProfit >= 0 ? '+' : '';
@@ -253,10 +307,16 @@ function renderWallet() {
   const eqEl = document.getElementById('walletEquity');
   if (eqEl) eqEl.innerText = '$' + w.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const profEl = document.getElementById('statTotalProfitHeader');
-  if (profEl) {
-    profEl.innerText = `${sign}$${netProfit.toFixed(2)}`;
-    profEl.className = `font-mono font-extrabold text-sm ${color}`;
+  const profHeader = document.getElementById('statTotalProfitHeader');
+  if (profHeader) {
+    profHeader.innerText = `${sign}$${netProfit.toFixed(2)}`;
+    profHeader.className = `font-mono font-extrabold text-xs ${color}`;
+  }
+
+  const profTag = document.getElementById('walletEquityProfitTag');
+  if (profTag) {
+    profTag.innerText = `${sign}$${netProfit.toFixed(2)}`;
+    profTag.className = `font-mono font-extrabold text-xs ${color}`;
   }
 
   const balEl = document.getElementById('walletBalance');
@@ -279,6 +339,19 @@ function renderWallet() {
 
   const goalBarEl = document.getElementById('globalGoalProgressBar');
   if (goalBarEl) goalBarEl.style.width = `${pct}%`;
+
+  // History Tab Stats
+  const histTrades = document.getElementById('statHistoryTotalTrades');
+  if (histTrades) histTrades.innerText = w.tradeHistory ? w.tradeHistory.length : 0;
+
+  const histWinRate = document.getElementById('statHistoryWinRate');
+  if (histWinRate) histWinRate.innerText = `${w.winRate || 0}%`;
+
+  const histProfit = document.getElementById('statHistoryTotalProfit');
+  if (histProfit) {
+    histProfit.innerText = `${sign}$${netProfit.toFixed(2)}`;
+    histProfit.className = `text-xs font-bold ${color}`;
+  }
 }
 
 function renderPositions() {
@@ -345,7 +418,7 @@ function renderPositions() {
         <div class="flex items-center justify-between">
           <span class="text-[10px] text-[#6b7c93] font-mono">Margen: $${pos.margin} USDT</span>
           <button onclick="closePosition('${pos.id}')" class="px-3 py-1 rounded-lg text-xs font-bold bg-[#ff4d6d]/15 text-[#ff4d6d] hover:bg-[#ff4d6d] hover:text-white transition-all">
-            Cerrar
+            Cerrar Posición
           </button>
         </div>
       </div>
@@ -354,18 +427,94 @@ function renderPositions() {
   if (window.lucide) lucide.createIcons();
 }
 
+function renderAiAlertCard() {
+  const card = document.getElementById('aiSignalCardAlerts');
+  if (!card) return;
+
+  const s = state.latestAiSignal;
+  if (!s) {
+    card.innerHTML = `
+      <div class="text-center py-4">
+        <p class="text-xs text-[#8899a6] mb-2">Presiona escanear para consultar la IA.</p>
+        <button onclick="triggerAiScan()" class="btn-primary px-3.5 py-1.5 text-xs font-bold">
+          ⚡ Escanear con DeepSeek
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  const isBuy = s.signal === 'BUY_LONG';
+  const isSell = s.signal === 'SELL_SHORT';
+
+  let badgeColor = 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+  let badgeText = 'ESPERAR (HOLD)';
+  if (isBuy) {
+    badgeColor = 'bg-[#00f59b]/20 text-[#00f59b] border-[#00f59b]/40';
+    badgeText = 'COMPRA / LONG';
+  } else if (isSell) {
+    badgeColor = 'bg-[#ff4d6d]/20 text-[#ff4d6d] border-[#ff4d6d]/40';
+    badgeText = 'VENTA / SHORT';
+  }
+
+  card.innerHTML = `
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-black border ${badgeColor}">
+            ${badgeText}
+          </span>
+          <span class="text-xs font-mono font-bold text-white">${s.symbol}</span>
+        </div>
+        <span class="text-[11px] font-mono text-[#00f59b] font-bold">Confianza: ${s.confidence}%</span>
+      </div>
+
+      <div class="w-full h-1.5 bg-[#141b2b] rounded-full overflow-hidden mb-2.5">
+        <div class="h-full bg-gradient-to-r from-[#00f2fe] to-[#00f59b]" style="width: ${s.confidence}%"></div>
+      </div>
+
+      <div class="bg-[#07090e] p-2.5 rounded-xl border border-[#141b2b] text-[11px] text-[#c2d0df] leading-relaxed">
+        <span class="text-[#00f2fe] font-bold block mb-1">🧠 Razonamiento Técnico:</span>
+        <p>${s.reasoning || 'Evaluando condiciones de mercado...'}</p>
+      </div>
+    </div>
+  `;
+}
+
+function renderLogs() {
+  const container = document.getElementById('systemLogsContainer');
+  if (!container) return;
+
+  if (state.logs.length === 0) {
+    container.innerHTML = `<div class="text-[#5c6b7d] text-center py-3 text-xs">Esperando eventos en vivo...</div>`;
+    return;
+  }
+
+  container.innerHTML = state.logs.map(l => {
+    let color = 'text-[#c2d0df]';
+    if (l.type === 'success') color = 'text-[#00f59b] font-semibold';
+    if (l.type === 'error') color = 'text-[#ff4d6d]';
+    if (l.type === 'warning') color = 'text-[#ffd166]';
+
+    return `
+      <div class="py-0.5 flex items-start gap-1.5 text-[11px]">
+        <span class="text-[#55657e] font-mono text-[9px] shrink-0">[${l.timeFormatted || ''}]</span>
+        <span class="${color}">${l.message}</span>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderHistory() {
   const container = document.getElementById('tradeHistoryContainer');
-  const countEl = document.getElementById('statTotalTrades');
   if (!container) return;
 
   const history = state.wallet.tradeHistory || [];
-  if (countEl) countEl.innerText = history.length;
 
   if (history.length === 0) {
     container.innerHTML = `
       <div class="bg-[#0b0f19] p-4 rounded-2xl border border-[#141b2b] text-center text-xs text-[#55657e]">
-        Aún no hay operaciones cerradas.
+        Aún no hay operaciones registradas en la base de datos.
       </div>
     `;
     return;
@@ -405,6 +554,28 @@ function renderHistory() {
 function renderConfig() {
   const toggle = document.getElementById('autoPilotToggle');
   if (toggle) toggle.checked = state.autoPilot;
+
+  const cfg = state.config;
+  const inputKey = document.getElementById('inputDeepSeekKey');
+  if (inputKey && !inputKey.value) inputKey.value = cfg.deepseekApiKeyMasked || '';
+
+  const selectModel = document.getElementById('selectDeepSeekModel');
+  if (selectModel) selectModel.value = cfg.deepseekModel || 'deepseek-chat';
+
+  const inputTarget = document.getElementById('inputTargetProfit');
+  if (inputTarget) inputTarget.value = cfg.globalProfitGoalUSDT || 10.0;
+
+  const inputRisk = document.getElementById('inputRiskPercent');
+  if (inputRisk) inputRisk.value = cfg.riskPerTradePercent || 5;
+
+  const inputTgToken = document.getElementById('inputTelegramToken');
+  if (inputTgToken) inputTgToken.value = cfg.telegramBotToken || '';
+
+  const inputTgChat = document.getElementById('inputTelegramChatId');
+  if (inputTgChat) inputTgChat.value = cfg.telegramChatId || '';
+
+  const checkTg = document.getElementById('checkboxTelegramEnabled');
+  if (checkTg) checkTg.checked = cfg.telegramEnabled || false;
 }
 
 function updateConnectionStatus(connected) {
@@ -414,29 +585,9 @@ function updateConnectionStatus(connected) {
   statusEl.className = connected ? 'text-[#00f59b]' : 'text-[#ff4d6d]';
 }
 
-// ----------------------------------------------------
-// SETTINGS MODAL
-// ----------------------------------------------------
-function openSettingsModal() {
-  const modal = document.getElementById('settingsModal');
-  if (!modal) return;
-  const cfg = state.config;
-  document.getElementById('inputDeepSeekKey').value = cfg.deepseekApiKeyMasked || '';
-  document.getElementById('inputTargetProfit').value = cfg.globalProfitGoalUSDT || 10.0;
-  document.getElementById('inputRiskPercent').value = cfg.riskPerTradePercent || 5;
-  document.getElementById('inputTelegramToken').value = cfg.telegramBotToken || '';
-  document.getElementById('inputTelegramChatId').value = cfg.telegramChatId || '';
-  document.getElementById('checkboxTelegramEnabled').checked = cfg.telegramEnabled || false;
-  modal.classList.remove('hidden');
-}
-
-function closeSettingsModal() {
-  const modal = document.getElementById('settingsModal');
-  if (modal) modal.classList.add('hidden');
-}
-
 async function saveSettings() {
   const settings = {
+    deepseekModel: document.getElementById('selectDeepSeekModel').value,
     globalProfitGoalUSDT: parseFloat(document.getElementById('inputTargetProfit').value) || 10.0,
     riskPerTradePercent: parseFloat(document.getElementById('inputRiskPercent').value) || 5,
     telegramToken: document.getElementById('inputTelegramToken').value,
@@ -458,11 +609,31 @@ async function saveSettings() {
     const data = await res.json();
     if (data.success) {
       state.config = data.config;
-      closeSettingsModal();
       showToast('Configuración guardada en DB', 'success');
     }
   } catch (err) {
     showToast('Error: ' + err.message, 'danger');
+  }
+}
+
+async function testTelegram() {
+  const token = document.getElementById('inputTelegramToken')?.value.trim();
+  const chat = document.getElementById('inputTelegramChatId')?.value.trim();
+
+  try {
+    const res = await fetch('/api/telegram/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ botToken: token, chatId: chat })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('¡Alerta de prueba enviada a Telegram!', 'success');
+    } else {
+      showToast('Error Telegram: ' + data.error, 'danger');
+    }
+  } catch (e) {
+    showToast('Error: ' + e.message, 'danger');
   }
 }
 
@@ -502,6 +673,5 @@ function showToast(message, type = 'info') {
 }
 
 function bindUIEvents() {
-  document.getElementById('btnScanNow')?.addEventListener('click', triggerAiScan);
   document.getElementById('autoPilotToggle')?.addEventListener('change', toggleAutoPilot);
 }
