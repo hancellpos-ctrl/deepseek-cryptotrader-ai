@@ -1,4 +1,4 @@
-const axios = require('axios');
+﻿const axios = require('axios');
 const WebSocket = require('ws');
 const crypto = require('crypto');
 const { getConfig } = require('./config');
@@ -13,6 +13,10 @@ let activeWsInterval = null;
 let currentPrices = {};
 let pingInterval = null;
 let miniTickerPingInterval = null;
+
+function getCachedPrice(symbol) {
+  return currentPrices[symbol] || null;
+}
 
 /**
  * Fetch historical Kline/Candlestick data
@@ -48,6 +52,30 @@ async function fetch24hrTicker(symbol = 'BTCUSDT') {
   } catch (error) {
     console.error(`Error fetching 24hr ticker for ${symbol}:`, error.message);
     return null;
+  }
+}
+
+/**
+ * Fetch top trending, high volume and breakout pairs on Binance Futures
+ */
+async function fetchTopTrendingPairs(limit = 12, minQuoteVolume = 20000000) {
+  try {
+    const url = `${BINANCE_FUTURES_REST}/fapi/v1/ticker/24hr`;
+    const response = await axios.get(url, { timeout: 8000 });
+    const usdtPairs = response.data
+      .filter(item => item.symbol.endsWith('USDT') && parseFloat(item.quoteVolume) >= minQuoteVolume)
+      .sort((a, b) => Math.abs(parseFloat(b.priceChangePercent)) - Math.abs(parseFloat(a.priceChangePercent)))
+      .slice(0, limit)
+      .map(item => ({
+        symbol: item.symbol,
+        lastPrice: parseFloat(item.lastPrice),
+        priceChangePercent: parseFloat(item.priceChangePercent),
+        quoteVolume: parseFloat(item.quoteVolume)
+      }));
+    return usdtPairs;
+  } catch (error) {
+    console.error('Error fetching trending pairs:', error.message);
+    return [];
   }
 }
 
@@ -120,16 +148,11 @@ function initAllPricesStream(onAllPricesUpdate) {
     try {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        const config = getConfig();
-        const watchedSymbols = config.tradingPairs || ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT', 'XRPUSDT', '1000PEPEUSDT'];
         const updated = {};
-
         parsed.forEach(item => {
-          if (watchedSymbols.includes(item.s)) {
-            const price = parseFloat(item.c);
-            currentPrices[item.s] = price;
-            updated[item.s] = price;
-          }
+          const price = parseFloat(item.c);
+          currentPrices[item.s] = price;
+          updated[item.s] = price;
         });
 
         if (Object.keys(updated).length > 0 && onAllPricesUpdate) {
@@ -186,17 +209,19 @@ function connectBinanceStream(symbol, interval, onPriceUpdate, onCandleUpdate) {
 
   wsKlineClient.on('message', (data) => {
     try {
-      const parsed = JSON.parse(data);
-      if (parsed.e === 'kline') {
-        const k = parsed.k;
+      const msg = JSON.parse(data);
+      if (msg.e === 'kline') {
+        const k = msg.k;
         const currentPrice = parseFloat(k.c);
         currentPrices[symbol] = currentPrice;
 
         if (onPriceUpdate) {
           onPriceUpdate({
-            symbol,
+            symbol: symbol,
             price: currentPrice,
-            time: k.t,
+            timestamp: msg.E,
+            priceChange: parseFloat(k.c) - parseFloat(k.o),
+            priceChangePercent: ((parseFloat(k.c) - parseFloat(k.o)) / parseFloat(k.o)) * 100,
             high: parseFloat(k.h),
             low: parseFloat(k.l),
             volume: parseFloat(k.v)
@@ -205,47 +230,35 @@ function connectBinanceStream(symbol, interval, onPriceUpdate, onCandleUpdate) {
 
         if (onCandleUpdate) {
           onCandleUpdate({
-            symbol,
-            candle: {
-              time: Math.floor(k.t / 1000),
-              open: parseFloat(k.o),
-              high: parseFloat(k.h),
-              low: parseFloat(k.l),
-              close: parseFloat(k.c),
-              volume: parseFloat(k.v),
-              isClosed: k.x
-            }
+            time: Math.floor(k.t / 1000),
+            open: parseFloat(k.o),
+            high: parseFloat(k.h),
+            low: parseFloat(k.l),
+            close: parseFloat(k.c),
+            volume: parseFloat(k.v),
+            isFinal: k.x
           });
         }
       }
     } catch (err) {
-      console.error('[Binance WS] Kline parse error:', err.message);
+      console.error('[Binance WS] Error parsing kline message:', err.message);
     }
   });
 
   wsKlineClient.on('error', (err) => {
-    console.error('[Binance WS] Kline Error:', err.message);
+    console.error(`[Binance WS] Error on stream ${streamName}:`, err.message);
   });
 
   wsKlineClient.on('close', () => {
-    console.log('[Binance WS] Kline connection closed. Reconnecting in 3s...');
+    console.log(`[Binance WS] Stream ${streamName} closed.`);
     if (pingInterval) clearInterval(pingInterval);
-    setTimeout(() => {
-      if (activeWsSymbol) {
-        connectBinanceStream(activeWsSymbol, activeWsInterval, onPriceUpdate, onCandleUpdate);
-      }
-    }, 3000);
   });
 }
 
-function getCachedPrice(symbol) {
-  return currentPrices[symbol] || null;
-}
-
 /**
- * Execute real order on Binance Futures (Signed REST Request)
+ * Execute a REAL Binance Futures Market Order
  */
-async function executeRealBinanceOrder({ symbol, side, type = 'MARKET', quantity, leverage = 10, stopLoss, takeProfit }) {
+async function executeRealBinanceOrder({ symbol, side, quantity, leverage = 1, stopLoss, takeProfit, type = 'MARKET' }) {
   const config = getConfig();
   if (!config.binanceApiKey || !config.binanceApiSecret) {
     throw new Error('Binance API Key and Secret are required for Real Trading mode.');
@@ -255,7 +268,6 @@ async function executeRealBinanceOrder({ symbol, side, type = 'MARKET', quantity
   const apiKey = config.binanceApiKey;
   const apiSecret = config.binanceApiSecret;
 
-  // 1. Set Leverage
   try {
     const levQuery = `symbol=${symbol}&leverage=${leverage}&timestamp=${timestamp}`;
     const levSignature = crypto.createHmac('sha256', apiSecret).update(levQuery).digest('hex');
@@ -266,7 +278,6 @@ async function executeRealBinanceOrder({ symbol, side, type = 'MARKET', quantity
     console.warn(`[Binance Real] Note setting leverage:`, err.response?.data?.msg || err.message);
   }
 
-  // 2. Main Market Order
   const orderSide = side.toUpperCase();
   let orderQuery = `symbol=${symbol}&side=${orderSide}&type=${type}&quantity=${quantity}&timestamp=${Date.now()}`;
   let orderSignature = crypto.createHmac('sha256', apiSecret).update(orderQuery).digest('hex');
@@ -275,7 +286,6 @@ async function executeRealBinanceOrder({ symbol, side, type = 'MARKET', quantity
     headers: { 'X-MBX-APIKEY': apiKey }
   });
 
-  // 3. Place Stop Loss if provided
   if (stopLoss) {
     try {
       const slSide = orderSide === 'BUY' ? 'SELL' : 'BUY';
@@ -289,7 +299,6 @@ async function executeRealBinanceOrder({ symbol, side, type = 'MARKET', quantity
     }
   }
 
-  // 4. Place Take Profit if provided
   if (takeProfit) {
     try {
       const tpSide = orderSide === 'BUY' ? 'SELL' : 'BUY';
@@ -309,6 +318,7 @@ async function executeRealBinanceOrder({ symbol, side, type = 'MARKET', quantity
 module.exports = {
   fetchKlines,
   fetch24hrTicker,
+  fetchTopTrendingPairs,
   fetchAllPrices,
   fetchCurrentPrice,
   getCachedPrice,

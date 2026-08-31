@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
@@ -18,6 +18,7 @@ const defaultConfig = {
   autoPilotIntervalMinutes: 1,
   globalProfitGoalUSDT: 10.0, // Meta TOTAL acumulada: +$10.00 USD
   maxOpenPositions: 2, // Máximo 2 operaciones simultáneas
+  scanMode: 'top_trending', // 'top_trending' (Radar de Nuevas & Volátiles en Binance) | 'popular' (BTC, ETH, etc.)
   tradingPairs: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT', 'XRPUSDT', '1000PEPEUSDT'],
   activePair: 'BTCUSDT',
   timeframe: '15m',

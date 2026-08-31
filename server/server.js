@@ -5,7 +5,7 @@ const path = require('path');
 const cors = require('cors');
 
 const { getConfig, getSafeConfig, updateConfig } = require('./config');
-const { fetchKlines, fetch24hrTicker, fetchAllPrices, initAllPricesStream, connectBinanceStream, fetchCurrentPrice } = require('./binanceService');
+const { fetchKlines, fetch24hrTicker, fetchAllPrices, initAllPricesStream, connectBinanceStream, fetchCurrentPrice, fetchTopTrendingPairs } = require('./binanceService');
 const { analyzeCandles } = require('./indicators');
 const paperEngine = require('./paperTradingEngine');
 const autoTrader = require('./autoTrader');
@@ -134,6 +134,19 @@ app.get('/api/status', async (req, res) => {
         lastScanTime: autoTrader.lastScanTime
       }
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Get Top Trending / Volatile Cryptos from Binance Futures
+ */
+app.get('/api/market/trending', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit || '12', 10);
+    const trending = await fetchTopTrendingPairs(limit);
+    res.json({ success: true, trending });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

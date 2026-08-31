@@ -4,6 +4,7 @@
 
 const state = {
   prices: {},
+  trendingCoins: [],
   wallet: {
     balance: 1000.0,
     equity: 1000.0,
@@ -37,6 +38,8 @@ if ('serviceWorker' in navigator) {
 document.addEventListener('DOMContentLoaded', () => {
   initWebSocket();
   fetchInitialData();
+  fetchTrendingMarket();
+  setInterval(fetchTrendingMarket, 30000);
   bindUIEvents();
 });
 
@@ -196,22 +199,34 @@ async function fetchInitialData() {
   }
 }
 
-async function triggerAiScan() {
+async function fetchTrendingMarket() {
+  try {
+    const res = await fetch('/api/market/trending?limit=10');
+    const data = await res.json();
+    if (data.success && data.trending) {
+      state.trendingCoins = data.trending;
+      renderTrendingPills();
+    }
+  } catch (e) {}
+}
+
+async function triggerAiScan(symbol = 'BTCUSDT') {
   if (state.isScanning) return;
   state.isScanning = true;
-  showToast('🧠 DeepSeek escaneando el mercado...', 'info');
+  showToast(`🧠 DeepSeek analizando ${symbol}...`, 'info');
 
   try {
     const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol: 'BTCUSDT', timeframe: '15m', execute: true })
+      body: JSON.stringify({ symbol, timeframe: '15m', execute: true })
     });
     const data = await res.json();
     if (data.success) {
       state.latestAiSignal = data.analysis;
       renderAiAlertCard();
-      showToast(`Señal DeepSeek: ${data.analysis.signal} (${data.analysis.confidence}%)`, 'success');
+      showToast(`Señal ${data.analysis.symbol}: ${data.analysis.signal} (${data.analysis.confidence}%)`, 'success');
+      navigateToTab('view-alerts');
     } else {
       showToast('Error en análisis: ' + data.error, 'danger');
     }
@@ -283,12 +298,38 @@ async function resetPaperWallet() {
 // ----------------------------------------------------
 function renderAll() {
   renderWallet();
+  renderTrendingPills();
   renderPositions();
   renderAiAlertCard();
   renderLogs();
   renderHistory();
   renderConfig();
   if (window.lucide) lucide.createIcons();
+}
+
+function renderTrendingPills() {
+  const container = document.getElementById('trendingPillsContainer');
+  if (!container) return;
+
+  if (!state.trendingCoins || state.trendingCoins.length === 0) {
+    container.innerHTML = `<span class="text-[10px] text-[#6b7c93]">Cargando radar de Binance...</span>`;
+    return;
+  }
+
+  container.innerHTML = state.trendingCoins.map(c => {
+    const isUp = c.priceChangePercent >= 0;
+    const sign = isUp ? '+' : '';
+    const cleanSym = c.symbol.replace('USDT', '');
+
+    return `
+      <button onclick="triggerAiScan('${c.symbol}')" class="px-2.5 py-1 rounded-xl bg-[#0d121e] hover:bg-[#151d30] border border-[#1a243a] flex items-center gap-1.5 shrink-0 transition-all text-left">
+        <span class="text-xs font-extrabold text-white">${cleanSym}</span>
+        <span class="font-mono text-[10px] font-bold ${isUp ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
+          ${sign}${c.priceChangePercent.toFixed(1)}%
+        </span>
+      </button>
+    `;
+  }).join('');
 }
 
 function renderWallet() {
@@ -440,7 +481,7 @@ function renderAiAlertCard() {
     card.innerHTML = `
       <div class="text-center py-4">
         <p class="text-xs text-[#8899a6] mb-2">Presiona escanear para consultar la IA.</p>
-        <button onclick="triggerAiScan()" class="btn-primary px-3.5 py-1.5 text-xs font-bold">
+        <button onclick="triggerAiScan('BTCUSDT')" class="btn-primary px-3.5 py-1.5 text-xs font-bold">
           ⚡ Escanear con DeepSeek
         </button>
       </div>
@@ -567,6 +608,9 @@ function renderConfig() {
   const selectModel = document.getElementById('selectDeepSeekModel');
   if (selectModel) selectModel.value = cfg.deepseekModel || 'deepseek-chat';
 
+  const selectScan = document.getElementById('selectScanMode');
+  if (selectScan) selectScan.value = cfg.scanMode || 'top_trending';
+
   const selectLev = document.getElementById('selectLeverage');
   if (selectLev) selectLev.value = String(cfg.defaultLeverage || 1);
 
@@ -596,6 +640,7 @@ function updateConnectionStatus(connected) {
 async function saveSettings() {
   const settings = {
     deepseekModel: document.getElementById('selectDeepSeekModel').value,
+    scanMode: document.getElementById('selectScanMode').value,
     defaultLeverage: parseInt(document.getElementById('selectLeverage').value, 10) || 1,
     globalProfitGoalUSDT: parseFloat(document.getElementById('inputTargetProfit').value) || 10.0,
     riskPerTradePercent: parseFloat(document.getElementById('inputRiskPercent').value) || 5,
@@ -618,7 +663,7 @@ async function saveSettings() {
     const data = await res.json();
     if (data.success) {
       state.config = data.config;
-      showToast('Configuración guardada (Modo 1x Dinero Propio)', 'success');
+      showToast('Configuración guardada (Radar IA Activo)', 'success');
     }
   } catch (err) {
     showToast('Error: ' + err.message, 'danger');

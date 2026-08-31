@@ -37,7 +37,7 @@
         <h1 class="font-extrabold text-sm tracking-wide text-white leading-tight">CryptoTrader <span class="text-[#00f2fe]">AI</span></h1>
         <div class="flex items-center gap-1.5 text-[10px] text-[#6b7c93] font-mono">
           <span class="w-1.5 h-1.5 rounded-full bg-[#00f59b] pulse-dot"></span>
-          <span id="binanceWsStatus" class="text-[#00f59b]">Mercado Live</span>
+          <span id="binanceWsStatus" class="text-[#00f59b]">Binance Live</span>
           <span>•</span>
           <span class="text-[#00f2fe] font-bold">1x Dinero Propio</span>
         </div>
@@ -112,6 +112,20 @@
         <i data-lucide="sparkles" class="w-4 h-4"></i>
         <span>Escanear Oportunidad con DeepSeek</span>
       </button>
+
+      <!-- Trending & New Coins Radar Bar -->
+      <div class="space-y-1.5 pt-1">
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center gap-1.5">
+            <i data-lucide="flame" class="w-3.5 h-3.5 text-[#ffd166]"></i>
+            <span class="text-[11px] font-bold text-[#8899a6] uppercase tracking-wider">Radar de Oportunidades Binance</span>
+          </div>
+          <span class="text-[9px] text-[#6b7c93] font-mono">Toca para analizar</span>
+        </div>
+        <div id="trendingPillsContainer" class="flex items-center gap-2 overflow-x-auto py-1">
+          <!-- Rendered dynamically by app.js -->
+        </div>
+      </div>
 
       <!-- Active Open Trades Section -->
       <div class="space-y-2.5 pt-1">
@@ -224,7 +238,7 @@
           <i data-lucide="sliders" class="w-4 h-4 text-[#00f2fe]"></i>
           <h2 class="font-extrabold text-xs uppercase tracking-wider text-white">Configuración del Bot</h2>
         </div>
-        <span class="text-[10px] text-[#8899a6] font-mono">v1.2</span>
+        <span class="text-[10px] text-[#8899a6] font-mono">v1.3</span>
       </div>
 
       <!-- Settings Card -->
@@ -241,6 +255,15 @@
           <select id="selectDeepSeekModel" class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-[#00f2fe] focus:outline-none">
             <option value="deepseek-chat">deepseek-chat (V3 - Rápido y preciso)</option>
             <option value="deepseek-reasoner">deepseek-reasoner (R1 - Razonamiento profundo)</option>
+          </select>
+        </div>
+
+        <!-- Market Scan Mode Selector -->
+        <div>
+          <label class="text-[11px] font-bold text-[#00f59b] block mb-1">Modo de Exploración de Mercado</label>
+          <select id="selectScanMode" class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-2.5 py-2 text-xs text-white font-mono focus:border-[#00f59b] focus:outline-none">
+            <option value="top_trending" selected>🔥 Radar IA (Detecta Nuevas & Top Trending en Binance)</option>
+            <option value="popular">🏆 Principales (BTC, ETH, SOL, BNB, DOGE, XRP, PEPE)</option>
           </select>
         </div>
 

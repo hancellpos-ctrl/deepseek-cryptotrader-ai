@@ -1,8 +1,8 @@
-﻿const cron = require('node-cron');
+const cron = require('node-cron');
 const { getConfig } = require('./config');
 const { analyzeMarketWithDeepSeek } = require('./deepseekService');
 const paperEngine = require('./paperTradingEngine');
-const { executeRealBinanceOrder, fetchCurrentPrice } = require('./binanceService');
+const { executeRealBinanceOrder, fetchCurrentPrice, fetchTopTrendingPairs } = require('./binanceService');
 const { sendSignalAlert, sendOrderOpenedAlert } = require('./telegramService');
 
 class AutoTrader {
@@ -76,7 +76,23 @@ class AutoTrader {
     }
 
     const config = getConfig();
-    const symbolsToScan = specificSymbol ? [specificSymbol] : config.tradingPairs;
+    let symbolsToScan = specificSymbol ? [specificSymbol] : config.tradingPairs;
+
+    // Dynamic Discovery: If scanMode is 'top_trending', fetch top momentum/trending pairs from Binance
+    if (!specificSymbol && config.scanMode === 'top_trending') {
+      try {
+        const trendingPairs = await fetchTopTrendingPairs(8);
+        if (trendingPairs && trendingPairs.length > 0) {
+          const trendingSymbols = trendingPairs.map(t => t.symbol);
+          // Combine with active pairs ensuring no duplicates
+          symbolsToScan = Array.from(new Set([...trendingSymbols, 'BTCUSDT', 'SOLUSDT']));
+          this.log(`🔥 [RADAR IA] Detectadas ${trendingSymbols.length} criptos en tendencia en Binance: ${trendingSymbols.join(', ')}`, 'info');
+        }
+      } catch (err) {
+        console.warn('Error fetching dynamic trending pairs, fallback to defaults:', err.message);
+      }
+    }
+
     const currentWallet = paperEngine.getAccountSummary();
 
     this.isAnalyzing = true;
