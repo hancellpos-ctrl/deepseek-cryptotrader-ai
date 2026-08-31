@@ -1,4 +1,4 @@
-const cron = require('node-cron');
+﻿const cron = require('node-cron');
 const { getConfig } = require('./config');
 const { analyzeMarketWithDeepSeek } = require('./deepseekService');
 const paperEngine = require('./paperTradingEngine');
@@ -43,19 +43,17 @@ class AutoTrader {
 
   start() {
     const config = getConfig();
-    const intervalMin = config.autoPilotIntervalMinutes || 5;
+    const intervalMin = config.autoPilotIntervalMinutes || 1;
 
     if (this.cronTask) {
       this.cronTask.stop();
       this.cronTask = null;
     }
 
-    // Cron expression for every X minutes
     const cronExpr = `*/${intervalMin} * * * *`;
     this.isRunning = true;
-    this.log(`🚀 Modo Auto-Piloto IA ACTIVADO. Escaneo cada ${intervalMin} minutos.`, 'success');
+    this.log(`🚀 Modo Auto-Piloto IA ACTIVADO (1x Dinero Propio). Escaneo cada ${intervalMin} min.`, 'success');
 
-    // Run first analysis immediately in background
     setTimeout(() => this.runAnalysisCycle(), 2000);
 
     this.cronTask = cron.schedule(cronExpr, () => {
@@ -74,7 +72,6 @@ class AutoTrader {
 
   async runAnalysisCycle(specificSymbol = null) {
     if (this.isAnalyzing) {
-      this.log('Escaneo en progreso, omitiendo ciclo duplicado...', 'info');
       return;
     }
 
@@ -88,23 +85,16 @@ class AutoTrader {
 
     try {
       for (const symbol of symbolsToScan) {
-        this.log(`🔍 Analizando ${symbol} con IA DeepSeek (${config.timeframe})...`, 'info');
-
         try {
           const analysis = await analyzeMarketWithDeepSeek(symbol, config.timeframe, currentWallet.positions);
           this.latestSignals[symbol] = analysis;
 
           this.broadcast('AI_ANALYSIS_RESULT', analysis);
 
-          const signalEmoji = analysis.signal === 'BUY_LONG' ? '🟢 LONG' : (analysis.signal === 'SELL_SHORT' ? '🔴 SHORT' : '⏸️ HOLD');
-          this.log(`Resultado ${symbol}: ${signalEmoji} | Confianza: ${analysis.confidence}% | R/R: ${analysis.risk_reward_ratio}`, analysis.signal === 'HOLD' ? 'info' : 'success');
-
-          // Send Telegram signal if confidence is high or requested
           if (analysis.signal !== 'HOLD' && analysis.confidence >= 60) {
             sendSignalAlert(analysis).catch(e => console.error('[AutoTrader] Telegram error:', e));
           }
 
-          // Decide whether to execute trade
           if (config.autoPilot) {
             await this.evaluateAndExecuteTrade(analysis, config);
           }
@@ -124,45 +114,38 @@ class AutoTrader {
     const openPositions = paperEngine.positions;
     const existing = openPositions.find(p => p.symbol === analysis.symbol);
 
-    // 1. If AI decided to CLOSE an active position autonomously:
+    // AI Close decision
     if (analysis.signal === 'CLOSE_POSITION') {
       if (existing) {
         const currentPrice = await fetchCurrentPrice(analysis.symbol);
         const closed = paperEngine.closePosition(existing.id, currentPrice, `DECISIÓN_IA: ${analysis.reasoning || 'Cierre autónomo de DeepSeek'}`);
-        this.log(`🤖 [IA AUTÓNOMA] Cerró posición en ${analysis.symbol} @ $${currentPrice}. PnL: $${closed.realizedPnL} USDT (${closed.roiPercent}%). Motivo: ${analysis.reasoning}`, closed.realizedPnL >= 0 ? 'success' : 'warning');
+        this.log(`🤖 [IA AUTÓNOMA] Cerró ${analysis.symbol} @ $${currentPrice}. PnL: $${closed.realizedPnL} USDT (${closed.roiPercent}%).`, closed.realizedPnL >= 0 ? 'success' : 'warning');
       }
       return;
     }
 
     const minConfidence = config.minConfidenceToTrade || 68;
     if (analysis.confidence < minConfidence) {
-      this.log(`Señal ${analysis.signal} en ${analysis.symbol} ignorada: Confianza (${analysis.confidence}%) menor al umbral (${minConfidence}%).`, 'info');
       return;
     }
 
-    // 2. Check if we already have an active position on this pair
     if (existing) {
-      this.log(`Ya existe posición activa en ${analysis.symbol} (${existing.side}), la IA continúa monitoreándola en vivo.`, 'info');
       return;
     }
 
-    // 3. Check if maximum simultaneous positions limit reached (safety)
     const maxPositions = config.maxOpenPositions || 2;
     if (openPositions.length >= maxPositions) {
-      this.log(`Límite de seguridad (${maxPositions} posiciones activas) alcanzado. Protegiendo capital en reserva hasta que una cierre con ganancia.`, 'info');
       return;
     }
 
     const side = analysis.signal === 'BUY_LONG' ? 'LONG' : 'SHORT';
-    const leverage = analysis.recommended_leverage || config.defaultLeverage || 10;
+    const leverage = Number(config.defaultLeverage || 1); // 1x Dinero propio (sin apalancar)
     const entryPrice = analysis.entry_price || await fetchCurrentPrice(analysis.symbol);
 
     if (config.tradingMode === 'real') {
-      // Real Binance Futures execution
       try {
-        this.log(`🔥 [REAL BINANCE] Ejecutando orden real ${side} en ${analysis.symbol} (${leverage}x)...`, 'warning');
         const balance = 1000;
-        const margin = (balance * (config.riskPerTradePercent || 10)) / 100;
+        const margin = (balance * (config.riskPerTradePercent || 5)) / 100;
         const totalUSDT = margin * leverage;
         const quantity = (totalUSDT / entryPrice).toFixed(4);
 
@@ -175,14 +158,13 @@ class AutoTrader {
           takeProfit: analysis.take_profit
         });
 
-        this.log(`✅ [REAL] Orden ejecutada en Binance! ID: ${realOrder.orderId}`, 'success');
+        this.log(`✅ [REAL SPOT/1x] Orden ejecutada en Binance: $${margin} USDT en ${analysis.symbol}!`, 'success');
       } catch (err) {
-        this.log(`❌ [REAL] Error ejecutando orden Binance: ${err.message}`, 'error');
+        this.log(`❌ [REAL] Error ejecutando orden: ${err.message}`, 'error');
       }
     } else {
-      // Paper Trading Simulated Execution
       try {
-        const marginAmount = (paperEngine.balance * (config.riskPerTradePercent || 10)) / 100;
+        const marginAmount = (paperEngine.balance * (config.riskPerTradePercent || 5)) / 100;
         const position = paperEngine.openPosition({
           symbol: analysis.symbol,
           side,
@@ -195,10 +177,10 @@ class AutoTrader {
           aiReason: analysis.reasoning
         });
 
-        this.log(`🧪 [IA AUTÓNOMA] Abrió ${side} en ${analysis.symbol} @ $${entryPrice} (10x). Margen: $${position.margin} USDT | Meta: +$10.00 USD.`, 'success');
+        this.log(`🧪 [IA SPOT/1x] Invertidos $${position.margin} USDT (100% Dinero Propio) en ${analysis.symbol} @ $${entryPrice}.`, 'success');
         sendOrderOpenedAlert(position, 'paper').catch(e => console.error(e));
       } catch (err) {
-        this.log(`❌ [EMULADO] Error abriendo posición: ${err.message}`, 'error');
+        this.log(`❌ Error abriendo posición: ${err.message}`, 'error');
       }
     }
   }

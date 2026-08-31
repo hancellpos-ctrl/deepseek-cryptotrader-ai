@@ -46,14 +46,12 @@ document.addEventListener('DOMContentLoaded', () => {
 function navigateToTab(tabId) {
   state.activeTab = tabId;
 
-  // 1. Hide all views and show target
   document.querySelectorAll('.app-view').forEach(view => {
     view.classList.remove('active');
   });
   const targetView = document.getElementById(tabId);
   if (targetView) targetView.classList.add('active');
 
-  // 2. Update Bottom Nav active states
   const tabMap = {
     'view-trades': 'nav-btn-trades',
     'view-alerts': 'nav-btn-alerts',
@@ -69,10 +67,7 @@ function navigateToTab(tabId) {
   const activeBtn = document.getElementById(tabMap[tabId]);
   if (activeBtn) activeBtn.classList.add('active');
 
-  // 3. Re-render icons
   if (window.lucide) lucide.createIcons();
-
-  // Scroll to top
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -138,7 +133,7 @@ function handleWebSocketMessage(msg) {
       break;
 
     case 'POSITION_OPENED':
-      showToast(`⚡ IA Abrió: ${data.side} #${data.symbol} @ $${formatPrice(data.entryPrice)}`, 'info');
+      showToast(`⚡ IA Invirtió: $${data.margin} USDT en ${data.symbol} @ $${formatPrice(data.entryPrice)}`, 'info');
       break;
 
     case 'POSITION_CLOSED':
@@ -265,7 +260,7 @@ async function toggleAutoPilot() {
 }
 
 async function resetPaperWallet() {
-  if (!confirm('¿Reiniciar balance a $1,000 USDT y limpiar historial en SQLite?')) return;
+  if (!confirm('¿Reiniciar balance a $1,000 USDT (100% Dinero Propio) y limpiar historial?')) return;
   try {
     const res = await fetch('/api/wallet/reset', {
       method: 'POST',
@@ -368,8 +363,8 @@ function renderPositions() {
         <div class="w-8 h-8 mx-auto rounded-full bg-[#00f2fe]/10 flex items-center justify-center mb-2">
           <i data-lucide="radar" class="w-4 h-4 text-[#00f2fe]"></i>
         </div>
-        <p class="text-xs font-semibold text-[#8899a6]">Modo Centinela Activo</p>
-        <p class="text-[11px] text-[#55657e]">La IA está vigilando el mercado para ejecutar operaciones seguras.</p>
+        <p class="text-xs font-semibold text-[#8899a6]">Modo Centinela Activo (Sin Apalancar)</p>
+        <p class="text-[11px] text-[#55657e]">La IA vigila el mercado para invertir $50 de tu capital de forma segura.</p>
       </div>
     `;
     if (window.lucide) lucide.createIcons();
@@ -381,13 +376,14 @@ function renderPositions() {
     const isWin = (pos.unrealizedPnL || 0) >= 0;
     const sign = isWin ? '+' : '';
     const cleanSym = pos.symbol.replace('USDT', '').replace('1000', '');
+    const levText = (pos.leverage && pos.leverage > 1) ? `${pos.leverage}x` : '1x (Dinero Propio)';
 
     return `
       <div class="bg-[#0b0f19] p-3.5 rounded-2xl border border-[#172033] shadow-md">
         <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-2">
             <span class="px-2 py-0.5 rounded-md text-[10px] font-black ${isLong ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">
-              ${pos.side} ${pos.leverage}x
+              ${pos.side} • ${levText}
             </span>
             <h3 class="text-xs font-extrabold text-white">${cleanSym} <span class="text-[10px] text-[#55657e]">USDT</span></h3>
           </div>
@@ -397,6 +393,14 @@ function renderPositions() {
         </div>
 
         <div class="grid grid-cols-2 gap-1.5 text-[11px] font-mono bg-[#07090e] p-2 rounded-xl border border-[#141b2b] mb-2.5">
+          <div class="flex justify-between">
+            <span class="text-[#6b7c93]">Inversión Real:</span>
+            <span class="text-white font-bold">$${pos.margin} USDT</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-[#6b7c93]">Cantidad Cripto:</span>
+            <span class="text-white font-bold">${pos.quantity} ${cleanSym}</span>
+          </div>
           <div class="flex justify-between">
             <span class="text-[#6b7c93]">Entrada:</span>
             <span class="text-white font-bold">$${formatPrice(pos.entryPrice)}</span>
@@ -416,7 +420,7 @@ function renderPositions() {
         </div>
 
         <div class="flex items-center justify-between">
-          <span class="text-[10px] text-[#6b7c93] font-mono">Margen: $${pos.margin} USDT</span>
+          <span class="text-[10px] text-[#00f2fe] font-mono font-bold">100% Capital Propio</span>
           <button onclick="closePosition('${pos.id}')" class="px-3 py-1 rounded-lg text-xs font-bold bg-[#ff4d6d]/15 text-[#ff4d6d] hover:bg-[#ff4d6d] hover:text-white transition-all">
             Cerrar Posición
           </button>
@@ -451,7 +455,7 @@ function renderAiAlertCard() {
   let badgeText = 'ESPERAR (HOLD)';
   if (isBuy) {
     badgeColor = 'bg-[#00f59b]/20 text-[#00f59b] border-[#00f59b]/40';
-    badgeText = 'COMPRA / LONG';
+    badgeText = 'COMPRA SPOT / LONG';
   } else if (isSell) {
     badgeColor = 'bg-[#ff4d6d]/20 text-[#ff4d6d] border-[#ff4d6d]/40';
     badgeText = 'VENTA / SHORT';
@@ -524,19 +528,20 @@ function renderHistory() {
     const isWin = (t.realizedPnL || 0) >= 0;
     const sign = isWin ? '+' : '';
     const cleanSym = t.symbol.replace('USDT', '').replace('1000', '');
+    const levText = (t.leverage && t.leverage > 1) ? `${t.leverage}x` : '1x Dinero Propio';
 
     return `
       <div class="bg-[#0b0f19] p-3 rounded-xl border border-[#141b2b] flex items-center justify-between">
         <div>
           <div class="flex items-center gap-1.5 mb-1">
             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${t.side === 'LONG' ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">
-              ${t.side}
+              ${t.side} • ${levText}
             </span>
             <h4 class="text-xs font-bold text-white">${cleanSym}</h4>
             <span class="text-[10px] text-[#6b7c93]">• ${t.durationSeconds || 0}s</span>
           </div>
           <p class="text-[10px] text-[#6b7c93] font-mono">
-            $${formatPrice(t.entryPrice)} ➔ $${formatPrice(t.exitPrice)}
+            Inv: $${t.margin} USDT | $${formatPrice(t.entryPrice)} ➔ $${formatPrice(t.exitPrice)}
           </p>
         </div>
 
@@ -562,6 +567,9 @@ function renderConfig() {
   const selectModel = document.getElementById('selectDeepSeekModel');
   if (selectModel) selectModel.value = cfg.deepseekModel || 'deepseek-chat';
 
+  const selectLev = document.getElementById('selectLeverage');
+  if (selectLev) selectLev.value = String(cfg.defaultLeverage || 1);
+
   const inputTarget = document.getElementById('inputTargetProfit');
   if (inputTarget) inputTarget.value = cfg.globalProfitGoalUSDT || 10.0;
 
@@ -581,13 +589,14 @@ function renderConfig() {
 function updateConnectionStatus(connected) {
   const statusEl = document.getElementById('binanceWsStatus');
   if (!statusEl) return;
-  statusEl.innerText = connected ? 'Binance Futures' : 'Reconectando...';
+  statusEl.innerText = connected ? 'Mercado Live' : 'Reconectando...';
   statusEl.className = connected ? 'text-[#00f59b]' : 'text-[#ff4d6d]';
 }
 
 async function saveSettings() {
   const settings = {
     deepseekModel: document.getElementById('selectDeepSeekModel').value,
+    defaultLeverage: parseInt(document.getElementById('selectLeverage').value, 10) || 1,
     globalProfitGoalUSDT: parseFloat(document.getElementById('inputTargetProfit').value) || 10.0,
     riskPerTradePercent: parseFloat(document.getElementById('inputRiskPercent').value) || 5,
     telegramToken: document.getElementById('inputTelegramToken').value,
@@ -609,7 +618,7 @@ async function saveSettings() {
     const data = await res.json();
     if (data.success) {
       state.config = data.config;
-      showToast('Configuración guardada en DB', 'success');
+      showToast('Configuración guardada (Modo 1x Dinero Propio)', 'success');
     }
   } catch (err) {
     showToast('Error: ' + err.message, 'danger');

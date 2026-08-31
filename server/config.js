@@ -1,4 +1,4 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
@@ -14,19 +14,19 @@ const defaultConfig = {
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
   telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
   telegramEnabled: false,
-  autoPilot: true, // 100% Autónomo
-  autoPilotIntervalMinutes: 1, // Ciclo cada 1 minuto
-  globalProfitGoalUSDT: 10.0, // Meta TOTAL acumulada: +$10.00 USD (Llevar cuenta a $1,010 USDT)
-  maxOpenPositions: 2, // Máximo 2 operaciones a la vez (90% capital seguro)
+  autoPilot: true,
+  autoPilotIntervalMinutes: 1,
+  globalProfitGoalUSDT: 10.0, // Meta TOTAL acumulada: +$10.00 USD
+  maxOpenPositions: 2, // Máximo 2 operaciones simultáneas
   tradingPairs: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT', 'XRPUSDT', '1000PEPEUSDT'],
   activePair: 'BTCUSDT',
   timeframe: '15m',
   minConfidenceToTrade: 68,
-  riskPerTradePercent: 5, // 5% ($50 USDT de margen) por trade
-  defaultLeverage: 10,
-  maxLeverage: 10,
-  takeProfitPercent: 0.8, // Micro-scalps de 0.5% - 1.0% ($2.50 - $4.00) que van sumando a los $10
-  stopLossPercent: 0.4, // -$2.00 max riesgo
+  riskPerTradePercent: 5, // 5% de tu capital ($50 USDT de tu dinero propio por trade)
+  defaultLeverage: 1, // 1x = 100% Dinero Propio (Sin Apalancamiento / Modo Spot Seguro)
+  maxLeverage: 1,
+  takeProfitPercent: 1.5, // 1.5% de ganancia real sobre tu dinero
+  stopLossPercent: 0.8, // 0.8% de stop loss protector
   paperInitialBalance: 1000.0,
   soundAlerts: true
 };
@@ -60,7 +60,6 @@ function getConfig() {
 
 function getSafeConfig() {
   const safe = { ...currentConfig };
-  // Mask sensitive keys for client UI
   if (safe.deepseekApiKey) {
     safe.deepseekApiKeyMasked = safe.deepseekApiKey.length > 8 
       ? safe.deepseekApiKey.substring(0, 4) + '...' + safe.deepseekApiKey.slice(-4)
@@ -87,7 +86,6 @@ function getSafeConfig() {
 
 function updateConfig(newSettings) {
   ensureDataDir();
-  // Don't overwrite with empty string if client sent masked string
   if (newSettings.deepseekApiKey && newSettings.deepseekApiKey.includes('...')) {
     delete newSettings.deepseekApiKey;
   }
