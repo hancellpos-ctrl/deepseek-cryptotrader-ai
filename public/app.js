@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CryptoTrader AI - 4 Module Mobile Web App & PWA
  */
 
@@ -656,6 +656,9 @@ function renderConfig() {
   const inputRisk = document.getElementById('inputRiskPercent');
   if (inputRisk) inputRisk.value = cfg.riskPerTradePercent || 5;
 
+  const inputMaxPos = document.getElementById('inputMaxPositions');
+  if (inputMaxPos) inputMaxPos.value = cfg.maxOpenPositions || 2;
+
   const inputTgToken = document.getElementById('inputTelegramToken');
   if (inputTgToken) inputTgToken.value = cfg.telegramBotToken || '';
 
@@ -680,6 +683,7 @@ async function saveSettings() {
     defaultLeverage: parseInt(document.getElementById('selectLeverage').value, 10) || 1,
     globalProfitGoalUSDT: parseFloat(document.getElementById('inputTargetProfit').value) || 10.0,
     riskPerTradePercent: parseFloat(document.getElementById('inputRiskPercent').value) || 5,
+    maxOpenPositions: parseInt(document.getElementById('inputMaxPositions').value, 10) || 2,
     telegramToken: document.getElementById('inputTelegramToken').value,
     telegramChatId: document.getElementById('inputTelegramChatId').value,
     telegramEnabled: document.getElementById('checkboxTelegramEnabled').checked
