@@ -1,5 +1,5 @@
-/**
- * DeepSeek AI Quantitative Scalper ($5 USD Target) - Frontend Application
+﻿/**
+ * DeepSeek AI Quantitative Scalper ($10 USD Global Goal) - Frontend Application & PWA
  */
 
 const state = {
@@ -29,6 +29,15 @@ const state = {
 
 let ws = null;
 let audioCtx = null;
+
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('[PWA] Service Worker registrado'))
+      .catch(err => console.log('[PWA] Service Worker error:', err));
+  });
+}
 
 // Sound alerts
 function playSound(type) {
@@ -74,6 +83,42 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchInitialData();
   bindUIEvents();
 });
+
+// Mobile Tab Switcher
+function switchTab(tabId) {
+  document.querySelectorAll('.mobile-tab-view').forEach(el => {
+    el.classList.remove('active');
+  });
+  const target = document.getElementById(tabId);
+  if (target) target.classList.add('active');
+
+  // Update top segmented buttons
+  ['tab-overview', 'tab-ai', 'tab-history'].forEach(id => {
+    const btn = document.getElementById('btn-' + id);
+    if (btn) {
+      if (id === tabId) {
+        btn.className = 'flex-1 py-1.5 text-center font-bold rounded-lg text-xs transition-all bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/40';
+      } else {
+        btn.className = 'flex-1 py-1.5 text-center font-bold rounded-lg text-xs transition-all text-[#8899a6] hover:text-white';
+      }
+    }
+  });
+
+  // Update bottom nav buttons
+  const navMap = {
+    'tab-overview': 'nav-btn-overview',
+    'tab-ai': 'nav-btn-ai',
+    'tab-history': 'nav-btn-history'
+  };
+  ['nav-btn-overview', 'nav-btn-ai', 'nav-btn-history'].forEach(btnId => {
+    const btn = document.getElementById(btnId);
+    if (btn) btn.classList.remove('active');
+  });
+  const activeNavBtn = document.getElementById(navMap[tabId]);
+  if (activeNavBtn) activeNavBtn.classList.add('active');
+
+  if (window.lucide) lucide.createIcons();
+}
 
 // ----------------------------------------------------
 // WEBSOCKET CLIENT
@@ -246,7 +291,7 @@ async function fetchInitialData() {
 async function triggerAiScan(symbol = state.activeSymbol, timeframe = '15m', execute = true) {
   state.isAnalyzing = true;
   renderAiSignalCard();
-  showToast(`🧠 DeepSeek evaluando oportunidades de $5 en ${symbol}...`, 'info');
+  showToast(`🧠 DeepSeek evaluando confluencias en ${symbol}...`, 'info');
 
   try {
     const res = await fetch('/api/analyze', {
@@ -337,27 +382,44 @@ function renderAll() {
   renderLogs();
   renderHistory();
   renderConfigState();
+  if (window.lucide) lucide.createIcons();
 }
 
 function renderWalletSummary() {
   const w = state.wallet;
-  document.getElementById('walletBalance').innerText = '$' + w.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  document.getElementById('walletEquity').innerText = '$' + w.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const balStr = '$' + w.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const eqStr = '$' + w.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const balEl = document.getElementById('walletBalance');
+  if (balEl) balEl.innerText = balStr;
+
+  const eqEl = document.getElementById('walletEquity');
+  if (eqEl) eqEl.innerText = eqStr;
+
+  const eqMobile = document.getElementById('walletEquityMobile');
+  if (eqMobile) eqMobile.innerText = eqStr;
 
   // Calculate Net Accumulated Profit (Realized + Unrealized)
-  const totalRealized = w.tradeHistory.reduce((acc, t) => acc + (t.realizedPnL || 0), 0);
+  const totalRealized = w.tradeHistory ? w.tradeHistory.reduce((acc, t) => acc + (t.realizedPnL || 0), 0) : 0;
   const netAccumulatedProfit = Number((totalRealized + (w.unrealizedPnL || 0)).toFixed(2));
   const profPrefix = netAccumulatedProfit >= 0 ? '+' : '';
+  const profColor = netAccumulatedProfit >= 0 ? 'text-[#00f59b]' : 'text-[#ff4d6d]';
 
   const profEl = document.getElementById('statTotalProfitHeader');
   if (profEl) {
     profEl.innerText = `${profPrefix}$${netAccumulatedProfit.toFixed(2)} USDT`;
-    profEl.className = `font-mono font-extrabold text-sm ${netAccumulatedProfit >= 0 ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}`;
+    profEl.className = `font-mono font-extrabold text-xs sm:text-sm ${profColor}`;
+  }
+
+  const profMobile = document.getElementById('statTotalProfitMobile');
+  if (profMobile) {
+    profMobile.innerText = `${profPrefix}$${netAccumulatedProfit.toFixed(2)}`;
+    profMobile.className = `text-[10px] font-mono font-bold ${profColor}`;
   }
 
   const winRateEl = document.getElementById('walletWinRate');
   if (winRateEl) {
-    winRateEl.innerText = `${w.winRate}% (${w.winningTrades}W / ${w.losingTrades}L)`;
+    winRateEl.innerText = `${w.winRate || 0}% (${w.winningTrades || 0}W / ${w.losingTrades || 0}L)`;
   }
 
   // Update Global Goal Progress ($10.00 Total Goal)
@@ -369,7 +431,7 @@ function renderWalletSummary() {
 
   if (goalAmtEl) {
     if (netAccumulatedProfit >= globalGoal) {
-      goalAmtEl.innerHTML = `<span class="text-[#00f59b] font-extrabold">🏆 ¡META DE $10 USD LOGRADA! (+${netAccumulatedProfit.toFixed(2)} USDT)</span>`;
+      goalAmtEl.innerHTML = `<span class="text-[#00f59b] font-extrabold">🏆 ¡META LOGRADA! (+${netAccumulatedProfit.toFixed(2)} USDT)</span>`;
     } else {
       goalAmtEl.innerText = `${profPrefix}$${netAccumulatedProfit.toFixed(2)} / $${globalGoal.toFixed(2)} USDT (${goalProgressPct.toFixed(1)}%)`;
     }
@@ -393,9 +455,9 @@ function renderWatchlist() {
     if (cleanSym === '1000PEPE') cleanSym = 'PEPE';
 
     return `
-      <button onclick="selectQuickPair('${sym}')" class="px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1.5 border transition-all ${
+      <button onclick="selectQuickPair('${sym}')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 border transition-all whitespace-nowrap ${
         isSelected 
-          ? 'bg-[#00f2fe]/10 border-[#00f2fe] text-[#00f2fe]' 
+          ? 'bg-[#00f2fe]/15 border-[#00f2fe] text-[#00f2fe]' 
           : 'bg-[#111622] border-[#1e2638] text-[#8899a6] hover:text-white'
       }">
         <span>${cleanSym}:</span>
@@ -420,23 +482,23 @@ function renderPositions() {
   if (countBadge) {
     countBadge.innerText = `${positions.length} / 2 Activas`;
     countBadge.className = positions.length > 0 
-      ? 'px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-[#00f59b]/20 text-[#00f59b] border border-[#00f59b]/40 animate-pulse'
-      : 'px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/30';
+      ? 'px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-mono font-bold bg-[#00f59b]/20 text-[#00f59b] border border-[#00f59b]/40 animate-pulse'
+      : 'px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-mono font-bold bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/30';
   }
 
   if (positions.length === 0) {
     container.innerHTML = `
-      <div class="bg-[#080a0f] p-8 rounded-xl border border-dashed border-[#1e2638] text-center">
-        <div class="w-12 h-12 mx-auto rounded-full bg-[#00f2fe]/10 flex items-center justify-center mb-3">
-          <i data-lucide="radar" class="w-6 h-6 text-[#00f2fe] animate-spin" style="animation-duration: 6s;"></i>
+      <div class="bg-[#080a0f] p-6 sm:p-8 rounded-xl border border-dashed border-[#1e2638] text-center">
+        <div class="w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-full bg-[#00f2fe]/10 flex items-center justify-center mb-2.5 sm:mb-3">
+          <i data-lucide="radar" class="w-5 h-5 sm:w-6 sm:h-6 text-[#00f2fe] animate-spin" style="animation-duration: 6s;"></i>
         </div>
-        <h4 class="text-sm font-bold text-white mb-1">IA en Modo Centinela Autónomo</h4>
-        <p class="text-xs text-[#8899a6] max-w-md mx-auto">
-          DeepSeek está analizando los mercados en vivo. Realiza micro-operaciones seguras con <b>$50 de margen (5%)</b> para sumar ganancias poco a poco hasta alcanzar la <b>Meta Total de +$10.00 USD</b>.
+        <h4 class="text-xs sm:text-sm font-bold text-white mb-1">IA en Modo Centinela Autónomo</h4>
+        <p class="text-[11px] sm:text-xs text-[#8899a6] max-w-md mx-auto">
+          DeepSeek está analizando los mercados en vivo para abrir posiciones con <b>$50 de margen</b> y asegurar ganancias hasta la <b>Meta Total de +$10.00 USD</b>.
         </p>
       </div>
     `;
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
     return;
   }
 
@@ -449,56 +511,56 @@ function renderPositions() {
     if (cleanSym === '1000PEPE') cleanSym = 'PEPE';
 
     return `
-      <div class="bg-[#080a0f] p-4 rounded-xl border border-[#1e2638] hover:border-[#2a364f] transition-all">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div class="flex items-center gap-2">
-            <span class="px-2 py-0.5 rounded text-[11px] font-extrabold ${isLong ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">${pos.side} ${pos.leverage}x</span>
-            <h4 class="text-sm font-extrabold text-white">${cleanSym} <span class="text-xs text-gray-500 font-mono">(${pos.symbol})</span></h4>
-            <span class="text-xs font-mono text-[#8899a6]">Margen: $${pos.margin} USDT</span>
+      <div class="bg-[#080a0f] p-3.5 sm:p-4 rounded-xl border border-[#1e2638] hover:border-[#2a364f] transition-all">
+        <div class="flex items-center justify-between gap-2 mb-2.5">
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <span class="px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-extrabold ${isLong ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">${pos.side} ${pos.leverage}x</span>
+            <h4 class="text-xs sm:text-sm font-extrabold text-white">${cleanSym}</h4>
+            <span class="text-[11px] font-mono text-[#8899a6]">Margen: $${pos.margin}</span>
           </div>
 
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 sm:gap-3">
             <div class="text-right">
-              <span class="text-[10px] text-[#8899a6] block">PnL Flotante</span>
-              <span class="font-mono text-base font-extrabold ${isProfit ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
-                ${pnlSign}$${pos.unrealizedPnL.toFixed(2)} USDT (${pnlSign}${pos.unrealizedRoePercent}%)
+              <span class="text-[9px] text-[#8899a6] block">PnL Flotante</span>
+              <span class="font-mono text-xs sm:text-sm font-extrabold ${isProfit ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
+                ${pnlSign}$${pos.unrealizedPnL.toFixed(2)} (${pnlSign}${pos.unrealizedRoePercent}%)
               </span>
             </div>
-            <button onclick="closePosition('${pos.id}')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#ff4d6d]/20 text-[#ff4d6d] hover:bg-[#ff4d6d] hover:text-white transition-all">
+            <button onclick="closePosition('${pos.id}')" class="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-bold bg-[#ff4d6d]/20 text-[#ff4d6d] hover:bg-[#ff4d6d] hover:text-white transition-all">
               Cerrar
             </button>
           </div>
         </div>
 
         <!-- Metric Details -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono bg-[#111622] p-2.5 rounded-lg">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-mono bg-[#111622] p-2.5 rounded-lg">
           <div>
-            <span class="text-[10px] text-[#8899a6] block">Entrada</span>
+            <span class="text-[9px] text-[#8899a6] block">Entrada</span>
             <span class="text-white font-bold">$${formatPrice(pos.entryPrice)}</span>
           </div>
           <div>
-            <span class="text-[10px] text-[#8899a6] block">Precio Actual</span>
+            <span class="text-[9px] text-[#8899a6] block">Actual</span>
             <span class="text-white font-bold">$${formatPrice(pos.currentPrice)}</span>
           </div>
           <div>
-            <span class="text-[10px] text-[#00f59b] block">🎯 Take Profit</span>
+            <span class="text-[9px] text-[#00f59b] block">🎯 Take Profit</span>
             <span class="text-[#00f59b] font-bold">$${formatPrice(pos.takeProfit)}</span>
           </div>
           <div>
-            <span class="text-[10px] text-[#ff4d6d] block">🛑 Stop Loss</span>
+            <span class="text-[9px] text-[#ff4d6d] block">🛑 Stop Loss</span>
             <span class="text-[#ff4d6d] font-bold">$${formatPrice(pos.stopLoss)}</span>
           </div>
         </div>
 
         ${pos.aiReason ? `
-          <div class="mt-2.5 text-[11px] text-[#8899a6] italic">
+          <div class="mt-2 text-[10px] sm:text-[11px] text-[#8899a6] italic">
             🧠 <b>Motivo IA:</b> ${pos.aiReason}
           </div>
         ` : ''}
       </div>
     `;
   }).join('');
-  lucide.createIcons();
+  if (window.lucide) lucide.createIcons();
 }
 
 function renderAiSignalCard() {
@@ -508,9 +570,9 @@ function renderAiSignalCard() {
   if (state.isAnalyzing) {
     card.innerHTML = `
       <div class="flex flex-col items-center justify-center py-6 text-center">
-        <div class="w-8 h-8 border-3 border-[#00f2fe] border-t-transparent rounded-full animate-spin mb-3"></div>
+        <div class="w-7 h-7 border-3 border-[#00f2fe] border-t-transparent rounded-full animate-spin mb-2.5"></div>
         <h4 class="text-white font-bold text-xs mb-1">DeepSeek IA Analizando Mercados</h4>
-        <p class="text-[11px] text-[#8899a6]">Buscando la mejor confluencia para la meta de $5 USD...</p>
+        <p class="text-[11px] text-[#8899a6]">Evaluando indicadores técnicos y confluencias...</p>
       </div>
     `;
     return;
@@ -519,9 +581,9 @@ function renderAiSignalCard() {
   const s = state.latestAiSignal;
   if (!s) {
     card.innerHTML = `
-      <div class="text-center py-5 text-[#8899a6]">
+      <div class="text-center py-4 text-[#8899a6]">
         <p class="text-xs mb-2">IA en espera del próximo ciclo de escaneo.</p>
-        <button onclick="triggerAiScan()" class="btn-primary px-4 py-2 text-xs font-bold">
+        <button onclick="triggerAiScan()" class="btn-primary px-3.5 py-1.5 text-xs font-bold">
           ⚡ Escanear con DeepSeek Ahora
         </button>
       </div>
@@ -531,7 +593,6 @@ function renderAiSignalCard() {
 
   const isBuy = s.signal === 'BUY_LONG';
   const isSell = s.signal === 'SELL_SHORT';
-  const isHold = s.signal === 'HOLD';
 
   let badgeColor = 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
   let badgeText = '⏸️ ESPERAR (HOLD)';
@@ -545,29 +606,25 @@ function renderAiSignalCard() {
 
   card.innerHTML = `
     <div>
-      <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center justify-between mb-2.5">
         <div class="flex items-center gap-2">
-          <span class="px-2.5 py-0.5 rounded text-xs font-extrabold border ${badgeColor}">
+          <span class="px-2 py-0.5 rounded text-[11px] font-extrabold border ${badgeColor}">
             ${badgeText}
           </span>
           <span class="text-xs font-mono font-bold text-white">${s.symbol}</span>
         </div>
-        <span class="text-[11px] font-mono text-[#00f59b] font-bold">Meta: $5.00</span>
+        <span class="text-[10px] font-mono text-[#00f59b] font-bold">Confianza: ${s.confidence}%</span>
       </div>
 
       <!-- Confidence Gauge -->
-      <div class="mb-3">
-        <div class="flex justify-between text-xs font-semibold mb-1">
-          <span class="text-[#8899a6]">Confianza Cuántica:</span>
-          <span class="text-white font-mono font-bold">${s.confidence}%</span>
-        </div>
+      <div class="mb-2.5">
         <div class="w-full h-1.5 bg-[#161d2d] rounded-full overflow-hidden">
-          <div class="h-full bg-[#00f2fe]" style="width: ${s.confidence}%"></div>
+          <div class="h-full bg-gradient-to-r from-[#00f2fe] to-[#00f59b]" style="width: ${s.confidence}%"></div>
         </div>
       </div>
 
       <!-- Reasoning Text -->
-      <div class="terminal-box p-3 text-xs text-[#c2d0df] leading-relaxed">
+      <div class="terminal-box p-2.5 text-[11px] sm:text-xs text-[#c2d0df] leading-relaxed">
         <span class="text-[#00f2fe] font-bold block mb-1">🧠 Pensamiento de DeepSeek:</span>
         <p>${s.reasoning}</p>
       </div>
@@ -591,7 +648,7 @@ function renderLogs() {
     if (l.type === 'warning') color = 'text-[#ffd166]';
 
     return `
-      <div class="py-1 border-b border-[#161d2d] flex items-start gap-2 text-xs">
+      <div class="py-1 border-b border-[#161d2d] flex items-start gap-1.5 text-[11px] sm:text-xs">
         <span class="text-[#5c6b7d] font-mono text-[10px] shrink-0">[${l.timeFormatted || ''}]</span>
         <span class="${color}">${l.message}</span>
       </div>
@@ -600,44 +657,84 @@ function renderLogs() {
 }
 
 function renderHistory() {
-  const container = document.getElementById('tradeHistoryTableBody');
+  const tableBody = document.getElementById('tradeHistoryTableBody');
+  const cardsContainer = document.getElementById('mobileHistoryCardsContainer');
   const countEl = document.getElementById('statTotalTrades');
-  if (!container) return;
+  const countMobile = document.getElementById('statTotalTradesMobile');
 
   const history = state.wallet.tradeHistory || [];
   if (countEl) countEl.innerText = history.length;
+  if (countMobile) countMobile.innerText = history.length;
 
   if (history.length === 0) {
-    container.innerHTML = `
-      <tr>
-        <td colspan="7" class="text-center py-8 text-[#5c6b7d] text-xs">
-          Aún no hay operaciones cerradas. La IA está monitoreando para abrir la primera.
-        </td>
-      </tr>
-    `;
+    if (tableBody) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="7" class="text-center py-8 text-[#5c6b7d] text-xs">
+            Aún no hay operaciones cerradas. La IA está monitoreando el mercado.
+          </td>
+        </tr>
+      `;
+    }
+    if (cardsContainer) {
+      cardsContainer.innerHTML = `
+        <div class="text-center py-8 text-[#5c6b7d] text-xs bg-[#080a0f] p-4 rounded-xl border border-dashed border-[#1e2638]">
+          Aún no hay operaciones cerradas.
+        </div>
+      `;
+    }
     return;
   }
 
-  container.innerHTML = history.map(t => {
-    const isWin = (t.realizedPnL || 0) >= 0;
-    const sign = isWin ? '+' : '';
+  // Desktop Table Render
+  if (tableBody) {
+    tableBody.innerHTML = history.map(t => {
+      const isWin = (t.realizedPnL || 0) >= 0;
+      const sign = isWin ? '+' : '';
 
-    return `
-      <tr class="border-b border-[#1e2638] hover:bg-[#161d2d]/50 font-mono text-xs">
-        <td class="py-2.5 px-3 text-white font-bold">${t.symbol}</td>
-        <td class="py-2.5 px-3">
-          <span class="px-1.5 py-0.5 rounded text-[10px] ${t.side === 'LONG' ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">${t.side}</span>
-        </td>
-        <td class="py-2.5 px-3 text-white">$${formatPrice(t.entryPrice)}</td>
-        <td class="py-2.5 px-3 text-white">$${formatPrice(t.exitPrice)}</td>
-        <td class="py-2.5 px-3 font-bold ${isWin ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
-          ${sign}$${t.realizedPnL.toFixed(2)} USDT
-        </td>
-        <td class="py-2.5 px-3 text-[#8899a6] text-[11px]">${t.closeReason}</td>
-        <td class="py-2.5 px-3 text-[#8899a6]">${t.durationSeconds}s</td>
-      </tr>
-    `;
-  }).join('');
+      return `
+        <tr class="border-b border-[#1e2638] hover:bg-[#161d2d]/50 font-mono text-xs">
+          <td class="py-2.5 px-3 text-white font-bold">${t.symbol}</td>
+          <td class="py-2.5 px-3">
+            <span class="px-1.5 py-0.5 rounded text-[10px] ${t.side === 'LONG' ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">${t.side}</span>
+          </td>
+          <td class="py-2.5 px-3 text-white">$${formatPrice(t.entryPrice)}</td>
+          <td class="py-2.5 px-3 text-white">$${formatPrice(t.exitPrice)}</td>
+          <td class="py-2.5 px-3 font-bold ${isWin ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
+            ${sign}$${t.realizedPnL.toFixed(2)} USDT
+          </td>
+          <td class="py-2.5 px-3 text-[#8899a6] text-[11px]">${t.closeReason}</td>
+          <td class="py-2.5 px-3 text-[#8899a6]">${t.durationSeconds || 0}s</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // Mobile Cards Render
+  if (cardsContainer) {
+    cardsContainer.innerHTML = history.map(t => {
+      const isWin = (t.realizedPnL || 0) >= 0;
+      const sign = isWin ? '+' : '';
+
+      return `
+        <div class="bg-[#080a0f] p-3 rounded-xl border border-[#1e2638]">
+          <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center gap-1.5">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${t.side === 'LONG' ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">${t.side}</span>
+              <h5 class="text-xs font-bold text-white">${t.symbol}</h5>
+            </div>
+            <span class="font-mono text-xs font-bold ${isWin ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
+              ${sign}$${t.realizedPnL.toFixed(2)} USDT
+            </span>
+          </div>
+          <div class="flex items-center justify-between text-[10px] font-mono text-[#8899a6]">
+            <span>Entrada: $${formatPrice(t.entryPrice)} ➔ Salida: $${formatPrice(t.exitPrice)}</span>
+            <span>${t.closeReason}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
 }
 
 function renderConfigState() {
@@ -647,9 +744,9 @@ function renderConfigState() {
   if (toggleBtn) toggleBtn.checked = state.autoPilot;
   if (badge) {
     if (state.autoPilot) {
-      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-[#00f59b] pulse-dot"></span> <span class="text-[#00f59b] font-bold">AUTO-PILOTO ACTIVO</span>`;
+      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-[#00f59b] pulse-dot"></span> <span class="text-[#00f59b] font-bold">AUTO ACTIVO</span>`;
     } else {
-      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-[#8899a6]"></span> <span class="text-[#8899a6]">AUTO-PILOTO PAUSADO</span>`;
+      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-[#8899a6]"></span> <span class="text-[#8899a6]">AUTO PAUSADO</span>`;
     }
   }
 }
@@ -658,9 +755,9 @@ function updateConnectionBadge(connected) {
   const badge = document.getElementById('binanceWsStatus');
   if (!badge) return;
   if (connected) {
-    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-[#00f59b] pulse-dot"></span> <span class="text-[#00f59b]">Binance Futures Live</span>`;
+    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#00f59b] pulse-dot"></span> <span class="text-[#00f59b]">Futuros Live</span>`;
   } else {
-    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-[#ff4d6d]"></span> <span class="text-[#ff4d6d]">Reconectando...</span>`;
+    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#ff4d6d]"></span> <span class="text-[#ff4d6d]">Reconectando...</span>`;
   }
 }
 
@@ -674,13 +771,14 @@ function openSettingsModal() {
   const cfg = state.config;
   document.getElementById('inputDeepSeekKey').value = cfg.deepseekApiKeyMasked || '';
   document.getElementById('selectDeepSeekModel').value = cfg.deepseekModel || 'deepseek-chat';
-  document.getElementById('inputTargetProfit').value = cfg.targetProfitUSDT || 5.0;
+  document.getElementById('inputTargetProfit').value = cfg.globalProfitGoalUSDT || 10.0;
   document.getElementById('inputRiskPercent').value = cfg.riskPerTradePercent || 5;
   document.getElementById('inputTelegramToken').value = cfg.telegramBotToken || '';
   document.getElementById('inputTelegramChatId').value = cfg.telegramChatId || '';
   document.getElementById('checkboxTelegramEnabled').checked = cfg.telegramEnabled || false;
 
   modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
 }
 
 function closeSettingsModal() {
@@ -691,7 +789,7 @@ function closeSettingsModal() {
 async function saveSettings() {
   const settings = {
     deepseekModel: document.getElementById('selectDeepSeekModel').value,
-    targetProfitUSDT: parseFloat(document.getElementById('inputTargetProfit').value) || 5.0,
+    globalProfitGoalUSDT: parseFloat(document.getElementById('inputTargetProfit').value) || 10.0,
     riskPerTradePercent: parseFloat(document.getElementById('inputRiskPercent').value) || 5,
     telegramToken: document.getElementById('inputTelegramToken').value,
     telegramChatId: document.getElementById('inputTelegramChatId').value,

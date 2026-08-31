@@ -1,0 +1,16 @@
+﻿services:
+  - type: web
+    name: deepseek-cryptotrader-ai
+    env: node
+    plan: standard
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_MODEL
+        value: deepseek-chat
+      - key: TRADING_MODE
+        value: paper

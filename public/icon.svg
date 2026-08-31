@@ -1,0 +1,35 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0d14"/>
+      <stop offset="100%" stop-color="#111622"/>
+    </linearGradient>
+    <linearGradient id="neonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe"/>
+      <stop offset="50%" stop-color="#00f59b"/>
+      <stop offset="100%" stop-color="#4facfe"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  
+  <!-- Background Rounded App Icon -->
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)" stroke="#1e2638" stroke-width="8"/>
+  
+  <!-- Outer Glow Ring -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="url(#neonGrad)" stroke-width="6" opacity="0.4"/>
+  
+  <!-- Trading Chart / AI Brain Geometry -->
+  <path d="M 120 340 L 200 280 L 270 310 L 390 170" fill="none" stroke="url(#neonGrad)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  
+  <!-- Uptrend Arrow Head -->
+  <path d="M 330 170 L 390 170 L 390 230" fill="none" stroke="url(#neonGrad)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  
+  <!-- Floating Micro Nodes -->
+  <circle cx="120" cy="340" r="14" fill="#00f2fe" filter="url(#glow)"/>
+  <circle cx="200" cy="280" r="14" fill="#00f59b" filter="url(#glow)"/>
+  <circle cx="270" cy="310" r="14" fill="#00f2fe" filter="url(#glow)"/>
+  <circle cx="390" cy="170" r="18" fill="#00f59b" filter="url(#glow)"/>
+</svg>
