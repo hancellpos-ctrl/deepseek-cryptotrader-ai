@@ -1,9 +1,8 @@
 ﻿/**
- * DeepSeek AI Quantitative Scalper ($10 USD Global Goal) - Frontend Application & PWA
+ * CryptoTrader AI - Minimalist Mobile Web App
  */
 
 const state = {
-  activeSymbol: 'BTCUSDT',
   prices: {},
   wallet: {
     balance: 1000.0,
@@ -16,112 +15,30 @@ const state = {
     winningTrades: 0,
     losingTrades: 0,
     winRate: 0,
-    totalROI: 0,
     tradeHistory: []
   },
-  latestAiSignal: null,
-  isAnalyzing: false,
   autoPilot: true,
   config: {},
-  logs: [],
-  soundEnabled: true
+  isScanning: false
 };
 
 let ws = null;
-let audioCtx = null;
 
-// Register Service Worker for PWA
+// Register Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(() => console.log('[PWA] Service Worker registrado'))
-      .catch(err => console.log('[PWA] Service Worker error:', err));
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }
 
-// Sound alerts
-function playSound(type) {
-  if (!state.soundEnabled) return;
-  try {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    const now = audioCtx.currentTime;
-
-    if (type === 'signal') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, now);
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-      osc.start(now);
-      osc.stop(now + 0.3);
-    } else if (type === 'win') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(523.25, now);
-      osc.frequency.setValueAtTime(659.25, now + 0.1);
-      osc.frequency.setValueAtTime(783.99, now + 0.2);
-      gain.gain.setValueAtTime(0.18, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
-      osc.start(now);
-      osc.stop(now + 0.45);
-    }
-  } catch (e) {}
-}
-
-// ----------------------------------------------------
-// INITIALIZATION
-// ----------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
   initWebSocket();
   fetchInitialData();
   bindUIEvents();
 });
 
-// Mobile Tab Switcher
-function switchTab(tabId) {
-  document.querySelectorAll('.mobile-tab-view').forEach(el => {
-    el.classList.remove('active');
-  });
-  const target = document.getElementById(tabId);
-  if (target) target.classList.add('active');
-
-  // Update top segmented buttons
-  ['tab-overview', 'tab-ai', 'tab-history'].forEach(id => {
-    const btn = document.getElementById('btn-' + id);
-    if (btn) {
-      if (id === tabId) {
-        btn.className = 'flex-1 py-1.5 text-center font-bold rounded-lg text-xs transition-all bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/40';
-      } else {
-        btn.className = 'flex-1 py-1.5 text-center font-bold rounded-lg text-xs transition-all text-[#8899a6] hover:text-white';
-      }
-    }
-  });
-
-  // Update bottom nav buttons
-  const navMap = {
-    'tab-overview': 'nav-btn-overview',
-    'tab-ai': 'nav-btn-ai',
-    'tab-history': 'nav-btn-history'
-  };
-  ['nav-btn-overview', 'nav-btn-ai', 'nav-btn-history'].forEach(btnId => {
-    const btn = document.getElementById(btnId);
-    if (btn) btn.classList.remove('active');
-  });
-  const activeNavBtn = document.getElementById(navMap[tabId]);
-  if (activeNavBtn) activeNavBtn.classList.add('active');
-
-  if (window.lucide) lucide.createIcons();
-}
-
 // ----------------------------------------------------
-// WEBSOCKET CLIENT
+// WEBSOCKET
 // ----------------------------------------------------
 function initWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -129,8 +46,10 @@ function initWebSocket() {
 
   ws = new WebSocket(wsUrl);
 
-  ws.onopen = () => {
-    updateConnectionBadge(true);
+  ws.onopen = () => updateConnectionStatus(true);
+  ws.onclose = () => {
+    updateConnectionStatus(false);
+    setTimeout(initWebSocket, 2000);
   };
 
   ws.onmessage = (event) => {
@@ -140,11 +59,6 @@ function initWebSocket() {
     } catch (e) {
       console.error('[WS] Parse error:', e);
     }
-  };
-
-  ws.onclose = () => {
-    updateConnectionBadge(false);
-    setTimeout(initWebSocket, 2000);
   };
 }
 
@@ -156,90 +70,46 @@ function handleWebSocketMessage(msg) {
       state.config = data.config || {};
       state.wallet = data.wallet || state.wallet;
       state.autoPilot = state.config.autoPilot !== undefined ? state.config.autoPilot : true;
-      if (data.autoTraderStatus?.logs) {
-        state.logs = data.autoTraderStatus.logs;
-      }
       renderAll();
       break;
 
     case 'ALL_PRICES_TICK':
-      handleAllPricesTick(data);
-      break;
-
-    case 'PRICE_TICK':
-      handlePriceTick(data);
+      handlePricesTick(data);
       break;
 
     case 'WALLET_UPDATE':
       state.wallet = data;
-      renderWalletSummary();
+      renderWallet();
       renderPositions();
       renderHistory();
       break;
 
-    case 'AI_ANALYSIS_RESULT':
-      state.latestAiSignal = data;
-      state.isAnalyzing = false;
-      renderAiSignalCard();
-      playSound('signal');
-      break;
-
-    case 'SCAN_STARTED':
-      state.isAnalyzing = true;
-      renderAiSignalCard();
-      break;
-
-    case 'SCAN_COMPLETED':
-      state.isAnalyzing = false;
-      renderAiSignalCard();
-      break;
-
-    case 'AUTO_TRADER_LOG':
-      state.logs.unshift(data);
-      if (state.logs.length > 100) state.logs.pop();
-      renderLogs();
-      break;
-
     case 'POSITION_OPENED':
-      playSound('signal');
-      showToast(`⚡ IA Abrió Operación: ${data.side} #${data.symbol} @ $${formatPrice(data.entryPrice)}`, 'info');
+      showToast(`⚡ IA Abrió: ${data.side} ${data.symbol} @ $${formatPrice(data.entryPrice)}`, 'info');
       break;
 
     case 'POSITION_CLOSED':
       if (data.realizedPnL >= 0) {
-        playSound('win');
-        showToast(`🎯 ¡META CUMPLIDA! +$${data.realizedPnL} USDT en ${data.symbol}`, 'success');
+        showToast(`🎯 ¡Ganancia lograda! +$${data.realizedPnL} USDT en ${data.symbol}`, 'success');
       } else {
-        showToast(`🛑 Cierre de Protección: -$${Math.abs(data.realizedPnL)} USDT en ${data.symbol}`, 'danger');
+        showToast(`🛑 Cierre preventivo: -$${Math.abs(data.realizedPnL)} USDT en ${data.symbol}`, 'danger');
       }
       break;
 
     case 'CONFIG_UPDATED':
       state.config = data;
       state.autoPilot = data.autoPilot;
-      renderConfigState();
+      renderConfig();
       break;
   }
 }
 
-function handleAllPricesTick(priceMap) {
-  for (const [symbol, price] of Object.entries(priceMap)) {
-    const oldPrice = state.prices[symbol];
-    state.prices[symbol] = price;
+function handlePricesTick(priceMap) {
+  state.prices = { ...state.prices, ...priceMap };
 
-    const tickerEl = document.getElementById(`watch-price-${symbol}`);
-    if (tickerEl) {
-      tickerEl.innerText = '$' + formatPrice(price);
-      if (oldPrice && price !== oldPrice) {
-        tickerEl.style.color = price > oldPrice ? '#00f59b' : '#ff4d6d';
-        setTimeout(() => { if (tickerEl) tickerEl.style.color = '#ffffff'; }, 600);
-      }
-    }
-  }
-
-  // Update open positions floating PnL in real-time
+  // Update open positions floating PnL live
   if (state.wallet.positions && state.wallet.positions.length > 0) {
-    let hasPosChanges = false;
+    let changed = false;
     state.wallet.positions.forEach(pos => {
       const currentPrice = state.prices[pos.symbol];
       if (currentPrice && currentPrice !== pos.currentPrice) {
@@ -249,28 +119,19 @@ function handleAllPricesTick(priceMap) {
           : (pos.entryPrice - currentPrice) * pos.quantity;
         pos.unrealizedPnL = Number(pnl.toFixed(2));
         pos.unrealizedRoePercent = Number(((pnl / pos.margin) * 100).toFixed(2));
-        hasPosChanges = true;
+        changed = true;
       }
     });
 
-    if (hasPosChanges) {
-      renderWalletSummary();
+    if (changed) {
+      renderWallet();
       renderPositions();
     }
   }
 }
 
-function handlePriceTick(data) {
-  const { symbol, price } = data;
-  state.prices[symbol] = price;
-  const tickerEl = document.getElementById(`watch-price-${symbol}`);
-  if (tickerEl) {
-    tickerEl.innerText = '$' + formatPrice(price);
-  }
-}
-
 // ----------------------------------------------------
-// REST API DATA
+// REST API
 // ----------------------------------------------------
 async function fetchInitialData() {
   try {
@@ -284,33 +145,32 @@ async function fetchInitialData() {
       renderAll();
     }
   } catch (err) {
-    console.error('Error fetching initial status:', err);
+    console.error('Error fetching status:', err);
   }
 }
 
-async function triggerAiScan(symbol = state.activeSymbol, timeframe = '15m', execute = true) {
-  state.isAnalyzing = true;
-  renderAiSignalCard();
-  showToast(`🧠 DeepSeek evaluando confluencias en ${symbol}...`, 'info');
+async function triggerAiScan() {
+  if (state.isScanning) return;
+  state.isScanning = true;
+  showToast('🧠 DeepSeek escaneando confluencias técnicas...', 'info');
 
   try {
     const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol, timeframe, execute })
+      body: JSON.stringify({ symbol: 'BTCUSDT', timeframe: '15m', execute: true })
     });
     const data = await res.json();
     if (data.success) {
-      state.latestAiSignal = data.analysis;
-      renderAiSignalCard();
+      const sig = data.analysis;
+      showToast(`Análisis completado: ${sig.signal} (${sig.confidence}%)`, 'success');
     } else {
       showToast('Error en análisis: ' + data.error, 'danger');
     }
   } catch (err) {
-    showToast('Error de conexión: ' + err.message, 'danger');
+    showToast('Error: ' + err.message, 'danger');
   } finally {
-    state.isAnalyzing = false;
-    renderAiSignalCard();
+    state.isScanning = false;
   }
 }
 
@@ -323,29 +183,9 @@ async function closePosition(positionId) {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('Posición cerrada manualmente', 'info');
+      showToast('Posición cerrada', 'info');
     } else {
       showToast('Error al cerrar: ' + data.error, 'danger');
-    }
-  } catch (err) {
-    showToast('Error: ' + err.message, 'danger');
-  }
-}
-
-async function resetPaperWallet() {
-  if (!confirm('¿Deseas reiniciar la cuenta a $1,000 USDT?')) return;
-
-  try {
-    const res = await fetch('/api/wallet/reset', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initialBalance: 1000.0 })
-    });
-    const data = await res.json();
-    if (data.success) {
-      state.wallet = data.wallet;
-      renderAll();
-      showToast('Cuenta reiniciada a $1,000.00 USDT', 'success');
     }
   } catch (err) {
     showToast('Error: ' + err.message, 'danger');
@@ -363,8 +203,27 @@ async function toggleAutoPilot() {
     const data = await res.json();
     if (data.success) {
       state.autoPilot = data.isRunning;
-      renderConfigState();
-      showToast(newStatus ? '🚀 Auto-Piloto IA ACTIVADO' : '⏸️ Auto-Piloto IA PAUSADO', newStatus ? 'success' : 'warning');
+      renderConfig();
+      showToast(newStatus ? '🚀 Auto-IA Activada' : '⏸️ Auto-IA Pausada', newStatus ? 'success' : 'warning');
+    }
+  } catch (err) {
+    showToast('Error: ' + err.message, 'danger');
+  }
+}
+
+async function resetPaperWallet() {
+  if (!confirm('¿Reiniciar balance a $1,000 USDT?')) return;
+  try {
+    const res = await fetch('/api/wallet/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initialBalance: 1000.0 })
+    });
+    const data = await res.json();
+    if (data.success) {
+      state.wallet = data.wallet;
+      renderAll();
+      showToast('Balance reiniciado a $1,000 USDT', 'success');
     }
   } catch (err) {
     showToast('Error: ' + err.message, 'danger');
@@ -372,105 +231,54 @@ async function toggleAutoPilot() {
 }
 
 // ----------------------------------------------------
-// UI RENDERING
+// RENDERING
 // ----------------------------------------------------
 function renderAll() {
-  renderWalletSummary();
-  renderWatchlist();
+  renderWallet();
   renderPositions();
-  renderAiSignalCard();
-  renderLogs();
   renderHistory();
-  renderConfigState();
+  renderConfig();
   if (window.lucide) lucide.createIcons();
 }
 
-function renderWalletSummary() {
+function renderWallet() {
   const w = state.wallet;
-  const balStr = '$' + w.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const eqStr = '$' + w.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  const balEl = document.getElementById('walletBalance');
-  if (balEl) balEl.innerText = balStr;
+  
+  // Total Net Profit
+  const totalRealized = w.tradeHistory ? w.tradeHistory.reduce((acc, t) => acc + (t.realizedPnL || 0), 0) : 0;
+  const netProfit = Number((totalRealized + (w.unrealizedPnL || 0)).toFixed(2));
+  const sign = netProfit >= 0 ? '+' : '';
+  const color = netProfit >= 0 ? 'text-[#00f59b]' : 'text-[#ff4d6d]';
 
   const eqEl = document.getElementById('walletEquity');
-  if (eqEl) eqEl.innerText = eqStr;
-
-  const eqMobile = document.getElementById('walletEquityMobile');
-  if (eqMobile) eqMobile.innerText = eqStr;
-
-  // Calculate Net Accumulated Profit (Realized + Unrealized)
-  const totalRealized = w.tradeHistory ? w.tradeHistory.reduce((acc, t) => acc + (t.realizedPnL || 0), 0) : 0;
-  const netAccumulatedProfit = Number((totalRealized + (w.unrealizedPnL || 0)).toFixed(2));
-  const profPrefix = netAccumulatedProfit >= 0 ? '+' : '';
-  const profColor = netAccumulatedProfit >= 0 ? 'text-[#00f59b]' : 'text-[#ff4d6d]';
+  if (eqEl) eqEl.innerText = '$' + w.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const profEl = document.getElementById('statTotalProfitHeader');
   if (profEl) {
-    profEl.innerText = `${profPrefix}$${netAccumulatedProfit.toFixed(2)} USDT`;
-    profEl.className = `font-mono font-extrabold text-xs sm:text-sm ${profColor}`;
+    profEl.innerText = `${sign}$${netProfit.toFixed(2)}`;
+    profEl.className = `font-mono font-extrabold text-sm ${color}`;
   }
 
-  const profMobile = document.getElementById('statTotalProfitMobile');
-  if (profMobile) {
-    profMobile.innerText = `${profPrefix}$${netAccumulatedProfit.toFixed(2)}`;
-    profMobile.className = `text-[10px] font-mono font-bold ${profColor}`;
-  }
+  const balEl = document.getElementById('walletBalance');
+  if (balEl) balEl.innerText = '$' + w.balance.toFixed(2);
+
+  const availEl = document.getElementById('walletAvailableMargin');
+  if (availEl) availEl.innerText = '$' + w.availableMargin.toFixed(2);
 
   const winRateEl = document.getElementById('walletWinRate');
-  if (winRateEl) {
-    winRateEl.innerText = `${w.winRate || 0}% (${w.winningTrades || 0}W / ${w.losingTrades || 0}L)`;
-  }
+  if (winRateEl) winRateEl.innerText = `${w.winRate || 0}%`;
 
-  // Update Global Goal Progress ($10.00 Total Goal)
-  const globalGoal = state.config.globalProfitGoalUSDT || 10.0;
-  const goalProgressPct = Math.min(100, Math.max(0, (netAccumulatedProfit / globalGoal) * 100));
+  // Goal Progress
+  const goal = state.config.globalProfitGoalUSDT || 10.0;
+  const pct = Math.min(100, Math.max(0, (netProfit / goal) * 100));
 
   const goalAmtEl = document.getElementById('globalGoalAmount');
-  const goalBarEl = document.getElementById('globalGoalProgressBar');
-
   if (goalAmtEl) {
-    if (netAccumulatedProfit >= globalGoal) {
-      goalAmtEl.innerHTML = `<span class="text-[#00f59b] font-extrabold">🏆 ¡META LOGRADA! (+${netAccumulatedProfit.toFixed(2)} USDT)</span>`;
-    } else {
-      goalAmtEl.innerText = `${profPrefix}$${netAccumulatedProfit.toFixed(2)} / $${globalGoal.toFixed(2)} USDT (${goalProgressPct.toFixed(1)}%)`;
-    }
+    goalAmtEl.innerText = `${sign}$${netProfit.toFixed(2)} / $${goal.toFixed(2)} (${pct.toFixed(0)}%)`;
   }
 
-  if (goalBarEl) {
-    goalBarEl.style.width = `${goalProgressPct}%`;
-  }
-}
-
-function renderWatchlist() {
-  const container = document.getElementById('watchlistBar');
-  if (!container) return;
-
-  const pairs = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT', '1000PEPEUSDT'];
-  
-  container.innerHTML = pairs.map(sym => {
-    const isSelected = sym === state.activeSymbol;
-    const price = state.prices[sym] ? '$' + formatPrice(state.prices[sym]) : '---';
-    let cleanSym = sym.replace('USDT', '');
-    if (cleanSym === '1000PEPE') cleanSym = 'PEPE';
-
-    return `
-      <button onclick="selectQuickPair('${sym}')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 border transition-all whitespace-nowrap ${
-        isSelected 
-          ? 'bg-[#00f2fe]/15 border-[#00f2fe] text-[#00f2fe]' 
-          : 'bg-[#111622] border-[#1e2638] text-[#8899a6] hover:text-white'
-      }">
-        <span>${cleanSym}:</span>
-        <span id="watch-price-${sym}" class="font-mono text-white font-bold">${price}</span>
-      </button>
-    `;
-  }).join('');
-}
-
-function selectQuickPair(sym) {
-  state.activeSymbol = sym;
-  renderWatchlist();
-  triggerAiScan(sym, '15m', true);
+  const goalBarEl = document.getElementById('globalGoalProgressBar');
+  if (goalBarEl) goalBarEl.style.width = `${pct}%`;
 }
 
 function renderPositions() {
@@ -479,23 +287,16 @@ function renderPositions() {
   if (!container) return;
 
   const positions = state.wallet.positions || [];
-  if (countBadge) {
-    countBadge.innerText = `${positions.length} / 2 Activas`;
-    countBadge.className = positions.length > 0 
-      ? 'px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-mono font-bold bg-[#00f59b]/20 text-[#00f59b] border border-[#00f59b]/40 animate-pulse'
-      : 'px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-mono font-bold bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/30';
-  }
+  if (countBadge) countBadge.innerText = `${positions.length} Activas`;
 
   if (positions.length === 0) {
     container.innerHTML = `
-      <div class="bg-[#080a0f] p-6 sm:p-8 rounded-xl border border-dashed border-[#1e2638] text-center">
-        <div class="w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-full bg-[#00f2fe]/10 flex items-center justify-center mb-2.5 sm:mb-3">
-          <i data-lucide="radar" class="w-5 h-5 sm:w-6 sm:h-6 text-[#00f2fe] animate-spin" style="animation-duration: 6s;"></i>
+      <div class="bg-[#0b0f19] p-5 rounded-2xl border border-[#141b2b] text-center">
+        <div class="w-8 h-8 mx-auto rounded-full bg-[#00f2fe]/10 flex items-center justify-center mb-2">
+          <i data-lucide="radar" class="w-4 h-4 text-[#00f2fe]"></i>
         </div>
-        <h4 class="text-xs sm:text-sm font-bold text-white mb-1">IA en Modo Centinela Autónomo</h4>
-        <p class="text-[11px] sm:text-xs text-[#8899a6] max-w-md mx-auto">
-          DeepSeek está analizando los mercados en vivo para abrir posiciones con <b>$50 de margen</b> y asegurar ganancias hasta la <b>Meta Total de +$10.00 USD</b>.
-        </p>
+        <p class="text-xs font-semibold text-[#8899a6]">Modo Centinela Activo</p>
+        <p class="text-[11px] text-[#55657e]">La IA está vigilando el mercado para ejecutar operaciones seguras.</p>
       </div>
     `;
     if (window.lucide) lucide.createIcons();
@@ -504,261 +305,113 @@ function renderPositions() {
 
   container.innerHTML = positions.map(pos => {
     const isLong = pos.side === 'LONG';
-    const isProfit = (pos.unrealizedPnL || 0) >= 0;
-    const pnlSign = isProfit ? '+' : '';
-
-    let cleanSym = pos.symbol.replace('USDT', '');
-    if (cleanSym === '1000PEPE') cleanSym = 'PEPE';
+    const isWin = (pos.unrealizedPnL || 0) >= 0;
+    const sign = isWin ? '+' : '';
+    const cleanSym = pos.symbol.replace('USDT', '').replace('1000', '');
 
     return `
-      <div class="bg-[#080a0f] p-3.5 sm:p-4 rounded-xl border border-[#1e2638] hover:border-[#2a364f] transition-all">
-        <div class="flex items-center justify-between gap-2 mb-2.5">
-          <div class="flex items-center gap-1.5 sm:gap-2">
-            <span class="px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-extrabold ${isLong ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">${pos.side} ${pos.leverage}x</span>
-            <h4 class="text-xs sm:text-sm font-extrabold text-white">${cleanSym}</h4>
-            <span class="text-[11px] font-mono text-[#8899a6]">Margen: $${pos.margin}</span>
+      <div class="bg-[#0b0f19] p-3.5 rounded-2xl border border-[#172033] shadow-md">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-black ${isLong ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">
+              ${pos.side} ${pos.leverage}x
+            </span>
+            <h3 class="text-xs font-extrabold text-white">${cleanSym} <span class="text-[10px] text-[#55657e]">USDT</span></h3>
           </div>
-
-          <div class="flex items-center gap-2 sm:gap-3">
-            <div class="text-right">
-              <span class="text-[9px] text-[#8899a6] block">PnL Flotante</span>
-              <span class="font-mono text-xs sm:text-sm font-extrabold ${isProfit ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
-                ${pnlSign}$${pos.unrealizedPnL.toFixed(2)} (${pnlSign}${pos.unrealizedRoePercent}%)
-              </span>
-            </div>
-            <button onclick="closePosition('${pos.id}')" class="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-bold bg-[#ff4d6d]/20 text-[#ff4d6d] hover:bg-[#ff4d6d] hover:text-white transition-all">
-              Cerrar
-            </button>
-          </div>
+          <span class="font-mono text-sm font-black ${isWin ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
+            ${sign}$${pos.unrealizedPnL.toFixed(2)} <span class="text-[10px]">(${sign}${pos.unrealizedRoePercent}%)</span>
+          </span>
         </div>
 
-        <!-- Metric Details -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-mono bg-[#111622] p-2.5 rounded-lg">
-          <div>
-            <span class="text-[9px] text-[#8899a6] block">Entrada</span>
+        <div class="grid grid-cols-2 gap-1.5 text-[11px] font-mono bg-[#07090e] p-2 rounded-xl border border-[#141b2b] mb-2.5">
+          <div class="flex justify-between">
+            <span class="text-[#6b7c93]">Entrada:</span>
             <span class="text-white font-bold">$${formatPrice(pos.entryPrice)}</span>
           </div>
-          <div>
-            <span class="text-[9px] text-[#8899a6] block">Actual</span>
+          <div class="flex justify-between">
+            <span class="text-[#6b7c93]">Actual:</span>
             <span class="text-white font-bold">$${formatPrice(pos.currentPrice)}</span>
           </div>
-          <div>
-            <span class="text-[9px] text-[#00f59b] block">🎯 Take Profit</span>
+          <div class="flex justify-between">
+            <span class="text-[#00f59b]">Take Profit:</span>
             <span class="text-[#00f59b] font-bold">$${formatPrice(pos.takeProfit)}</span>
           </div>
-          <div>
-            <span class="text-[9px] text-[#ff4d6d] block">🛑 Stop Loss</span>
+          <div class="flex justify-between">
+            <span class="text-[#ff4d6d]">Stop Loss:</span>
             <span class="text-[#ff4d6d] font-bold">$${formatPrice(pos.stopLoss)}</span>
           </div>
         </div>
 
-        ${pos.aiReason ? `
-          <div class="mt-2 text-[10px] sm:text-[11px] text-[#8899a6] italic">
-            🧠 <b>Motivo IA:</b> ${pos.aiReason}
-          </div>
-        ` : ''}
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] text-[#6b7c93] font-mono">Margen: $${pos.margin} USDT</span>
+          <button onclick="closePosition('${pos.id}')" class="px-3 py-1 rounded-lg text-xs font-bold bg-[#ff4d6d]/15 text-[#ff4d6d] hover:bg-[#ff4d6d] hover:text-white transition-all">
+            Cerrar
+          </button>
+        </div>
       </div>
     `;
   }).join('');
   if (window.lucide) lucide.createIcons();
 }
 
-function renderAiSignalCard() {
-  const card = document.getElementById('aiSignalCard');
-  if (!card) return;
-
-  if (state.isAnalyzing) {
-    card.innerHTML = `
-      <div class="flex flex-col items-center justify-center py-6 text-center">
-        <div class="w-7 h-7 border-3 border-[#00f2fe] border-t-transparent rounded-full animate-spin mb-2.5"></div>
-        <h4 class="text-white font-bold text-xs mb-1">DeepSeek IA Analizando Mercados</h4>
-        <p class="text-[11px] text-[#8899a6]">Evaluando indicadores técnicos y confluencias...</p>
-      </div>
-    `;
-    return;
-  }
-
-  const s = state.latestAiSignal;
-  if (!s) {
-    card.innerHTML = `
-      <div class="text-center py-4 text-[#8899a6]">
-        <p class="text-xs mb-2">IA en espera del próximo ciclo de escaneo.</p>
-        <button onclick="triggerAiScan()" class="btn-primary px-3.5 py-1.5 text-xs font-bold">
-          ⚡ Escanear con DeepSeek Ahora
-        </button>
-      </div>
-    `;
-    return;
-  }
-
-  const isBuy = s.signal === 'BUY_LONG';
-  const isSell = s.signal === 'SELL_SHORT';
-
-  let badgeColor = 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-  let badgeText = '⏸️ ESPERAR (HOLD)';
-  if (isBuy) {
-    badgeColor = 'bg-[#00f59b]/20 text-[#00f59b] border-[#00f59b]/40';
-    badgeText = '🟢 COMPRA / LONG';
-  } else if (isSell) {
-    badgeColor = 'bg-[#ff4d6d]/20 text-[#ff4d6d] border-[#ff4d6d]/40';
-    badgeText = '🔴 VENTA / SHORT';
-  }
-
-  card.innerHTML = `
-    <div>
-      <div class="flex items-center justify-between mb-2.5">
-        <div class="flex items-center gap-2">
-          <span class="px-2 py-0.5 rounded text-[11px] font-extrabold border ${badgeColor}">
-            ${badgeText}
-          </span>
-          <span class="text-xs font-mono font-bold text-white">${s.symbol}</span>
-        </div>
-        <span class="text-[10px] font-mono text-[#00f59b] font-bold">Confianza: ${s.confidence}%</span>
-      </div>
-
-      <!-- Confidence Gauge -->
-      <div class="mb-2.5">
-        <div class="w-full h-1.5 bg-[#161d2d] rounded-full overflow-hidden">
-          <div class="h-full bg-gradient-to-r from-[#00f2fe] to-[#00f59b]" style="width: ${s.confidence}%"></div>
-        </div>
-      </div>
-
-      <!-- Reasoning Text -->
-      <div class="terminal-box p-2.5 text-[11px] sm:text-xs text-[#c2d0df] leading-relaxed">
-        <span class="text-[#00f2fe] font-bold block mb-1">🧠 Pensamiento de DeepSeek:</span>
-        <p>${s.reasoning}</p>
-      </div>
-    </div>
-  `;
-}
-
-function renderLogs() {
-  const container = document.getElementById('systemLogsContainer');
+function renderHistory() {
+  const container = document.getElementById('tradeHistoryContainer');
+  const countEl = document.getElementById('statTotalTrades');
   if (!container) return;
 
-  if (state.logs.length === 0) {
-    container.innerHTML = `<div class="text-[#5c6b7d] text-center py-4 text-xs">Esperando eventos del sistema...</div>`;
+  const history = state.wallet.tradeHistory || [];
+  if (countEl) countEl.innerText = history.length;
+
+  if (history.length === 0) {
+    container.innerHTML = `
+      <div class="bg-[#0b0f19] p-4 rounded-2xl border border-[#141b2b] text-center text-xs text-[#55657e]">
+        Aún no hay operaciones cerradas.
+      </div>
+    `;
     return;
   }
 
-  container.innerHTML = state.logs.map(l => {
-    let color = 'text-[#c2d0df]';
-    if (l.type === 'success') color = 'text-[#00f59b] font-semibold';
-    if (l.type === 'error') color = 'text-[#ff4d6d]';
-    if (l.type === 'warning') color = 'text-[#ffd166]';
+  container.innerHTML = history.map(t => {
+    const isWin = (t.realizedPnL || 0) >= 0;
+    const sign = isWin ? '+' : '';
+    const cleanSym = t.symbol.replace('USDT', '').replace('1000', '');
 
     return `
-      <div class="py-1 border-b border-[#161d2d] flex items-start gap-1.5 text-[11px] sm:text-xs">
-        <span class="text-[#5c6b7d] font-mono text-[10px] shrink-0">[${l.timeFormatted || ''}]</span>
-        <span class="${color}">${l.message}</span>
+      <div class="bg-[#0b0f19] p-3 rounded-xl border border-[#141b2b] flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-1.5 mb-1">
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${t.side === 'LONG' ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">
+              ${t.side}
+            </span>
+            <h4 class="text-xs font-bold text-white">${cleanSym}</h4>
+            <span class="text-[10px] text-[#6b7c93]">• ${t.durationSeconds || 0}s</span>
+          </div>
+          <p class="text-[10px] text-[#6b7c93] font-mono">
+            $${formatPrice(t.entryPrice)} ➔ $${formatPrice(t.exitPrice)}
+          </p>
+        </div>
+
+        <div class="text-right">
+          <span class="font-mono text-xs font-black ${isWin ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
+            ${sign}$${t.realizedPnL.toFixed(2)} USDT
+          </span>
+          <span class="text-[9px] text-[#6b7c93] block">${t.closeReason || 'Cierre'}</span>
+        </div>
       </div>
     `;
   }).join('');
 }
 
-function renderHistory() {
-  const tableBody = document.getElementById('tradeHistoryTableBody');
-  const cardsContainer = document.getElementById('mobileHistoryCardsContainer');
-  const countEl = document.getElementById('statTotalTrades');
-  const countMobile = document.getElementById('statTotalTradesMobile');
-
-  const history = state.wallet.tradeHistory || [];
-  if (countEl) countEl.innerText = history.length;
-  if (countMobile) countMobile.innerText = history.length;
-
-  if (history.length === 0) {
-    if (tableBody) {
-      tableBody.innerHTML = `
-        <tr>
-          <td colspan="7" class="text-center py-8 text-[#5c6b7d] text-xs">
-            Aún no hay operaciones cerradas. La IA está monitoreando el mercado.
-          </td>
-        </tr>
-      `;
-    }
-    if (cardsContainer) {
-      cardsContainer.innerHTML = `
-        <div class="text-center py-8 text-[#5c6b7d] text-xs bg-[#080a0f] p-4 rounded-xl border border-dashed border-[#1e2638]">
-          Aún no hay operaciones cerradas.
-        </div>
-      `;
-    }
-    return;
-  }
-
-  // Desktop Table Render
-  if (tableBody) {
-    tableBody.innerHTML = history.map(t => {
-      const isWin = (t.realizedPnL || 0) >= 0;
-      const sign = isWin ? '+' : '';
-
-      return `
-        <tr class="border-b border-[#1e2638] hover:bg-[#161d2d]/50 font-mono text-xs">
-          <td class="py-2.5 px-3 text-white font-bold">${t.symbol}</td>
-          <td class="py-2.5 px-3">
-            <span class="px-1.5 py-0.5 rounded text-[10px] ${t.side === 'LONG' ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">${t.side}</span>
-          </td>
-          <td class="py-2.5 px-3 text-white">$${formatPrice(t.entryPrice)}</td>
-          <td class="py-2.5 px-3 text-white">$${formatPrice(t.exitPrice)}</td>
-          <td class="py-2.5 px-3 font-bold ${isWin ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
-            ${sign}$${t.realizedPnL.toFixed(2)} USDT
-          </td>
-          <td class="py-2.5 px-3 text-[#8899a6] text-[11px]">${t.closeReason}</td>
-          <td class="py-2.5 px-3 text-[#8899a6]">${t.durationSeconds || 0}s</td>
-        </tr>
-      `;
-    }).join('');
-  }
-
-  // Mobile Cards Render
-  if (cardsContainer) {
-    cardsContainer.innerHTML = history.map(t => {
-      const isWin = (t.realizedPnL || 0) >= 0;
-      const sign = isWin ? '+' : '';
-
-      return `
-        <div class="bg-[#080a0f] p-3 rounded-xl border border-[#1e2638]">
-          <div class="flex items-center justify-between mb-1.5">
-            <div class="flex items-center gap-1.5">
-              <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${t.side === 'LONG' ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">${t.side}</span>
-              <h5 class="text-xs font-bold text-white">${t.symbol}</h5>
-            </div>
-            <span class="font-mono text-xs font-bold ${isWin ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
-              ${sign}$${t.realizedPnL.toFixed(2)} USDT
-            </span>
-          </div>
-          <div class="flex items-center justify-between text-[10px] font-mono text-[#8899a6]">
-            <span>Entrada: $${formatPrice(t.entryPrice)} ➔ Salida: $${formatPrice(t.exitPrice)}</span>
-            <span>${t.closeReason}</span>
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
+function renderConfig() {
+  const toggle = document.getElementById('autoPilotToggle');
+  if (toggle) toggle.checked = state.autoPilot;
 }
 
-function renderConfigState() {
-  const toggleBtn = document.getElementById('autoPilotToggle');
-  const badge = document.getElementById('autoPilotStatusBadge');
-
-  if (toggleBtn) toggleBtn.checked = state.autoPilot;
-  if (badge) {
-    if (state.autoPilot) {
-      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-[#00f59b] pulse-dot"></span> <span class="text-[#00f59b] font-bold">AUTO ACTIVO</span>`;
-    } else {
-      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-[#8899a6]"></span> <span class="text-[#8899a6]">AUTO PAUSADO</span>`;
-    }
-  }
-}
-
-function updateConnectionBadge(connected) {
-  const badge = document.getElementById('binanceWsStatus');
-  if (!badge) return;
-  if (connected) {
-    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#00f59b] pulse-dot"></span> <span class="text-[#00f59b]">Futuros Live</span>`;
-  } else {
-    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#ff4d6d]"></span> <span class="text-[#ff4d6d]">Reconectando...</span>`;
-  }
+function updateConnectionStatus(connected) {
+  const statusEl = document.getElementById('binanceWsStatus');
+  if (!statusEl) return;
+  statusEl.innerText = connected ? 'Binance Futures' : 'Reconectando...';
+  statusEl.className = connected ? 'text-[#00f59b]' : 'text-[#ff4d6d]';
 }
 
 // ----------------------------------------------------
@@ -767,18 +420,14 @@ function updateConnectionBadge(connected) {
 function openSettingsModal() {
   const modal = document.getElementById('settingsModal');
   if (!modal) return;
-
   const cfg = state.config;
   document.getElementById('inputDeepSeekKey').value = cfg.deepseekApiKeyMasked || '';
-  document.getElementById('selectDeepSeekModel').value = cfg.deepseekModel || 'deepseek-chat';
   document.getElementById('inputTargetProfit').value = cfg.globalProfitGoalUSDT || 10.0;
   document.getElementById('inputRiskPercent').value = cfg.riskPerTradePercent || 5;
   document.getElementById('inputTelegramToken').value = cfg.telegramBotToken || '';
   document.getElementById('inputTelegramChatId').value = cfg.telegramChatId || '';
   document.getElementById('checkboxTelegramEnabled').checked = cfg.telegramEnabled || false;
-
   modal.classList.remove('hidden');
-  if (window.lucide) lucide.createIcons();
 }
 
 function closeSettingsModal() {
@@ -788,7 +437,6 @@ function closeSettingsModal() {
 
 async function saveSettings() {
   const settings = {
-    deepseekModel: document.getElementById('selectDeepSeekModel').value,
     globalProfitGoalUSDT: parseFloat(document.getElementById('inputTargetProfit').value) || 10.0,
     riskPerTradePercent: parseFloat(document.getElementById('inputRiskPercent').value) || 5,
     telegramToken: document.getElementById('inputTelegramToken').value,
@@ -811,37 +459,10 @@ async function saveSettings() {
     if (data.success) {
       state.config = data.config;
       closeSettingsModal();
-      renderConfigState();
-      showToast('Ajustes guardados correctamente', 'success');
+      showToast('Configuración guardada en DB', 'success');
     }
   } catch (err) {
     showToast('Error: ' + err.message, 'danger');
-  }
-}
-
-async function testTelegram() {
-  const token = document.getElementById('inputTelegramToken').value.trim();
-  const chat = document.getElementById('inputTelegramChatId').value.trim();
-
-  if (!token || !chat) {
-    alert('Ingresa el Bot Token y Chat ID');
-    return;
-  }
-
-  try {
-    const res = await fetch('/api/telegram/test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ botToken: token, chatId: chat })
-    });
-    const data = await res.json();
-    if (data.success) {
-      alert('¡Mensaje de prueba enviado con éxito a tu Telegram!');
-    } else {
-      alert('Error Telegram: ' + data.error);
-    }
-  } catch (e) {
-    alert('Error: ' + e.message);
   }
 }
 
@@ -862,27 +483,25 @@ function showToast(message, type = 'info') {
   if (!container) return;
 
   const toast = document.createElement('div');
-  let borderColor = 'border-[#00f2fe]';
-  let bgColor = 'bg-[#111622]';
-  if (type === 'success') borderColor = 'border-[#00f59b]';
-  if (type === 'danger') borderColor = 'border-[#ff4d6d]';
-  if (type === 'warning') borderColor = 'border-[#ffd166]';
+  let borderColor = 'border-[#00f2fe]/40';
+  let bgColor = 'bg-[#0f1422]';
+  if (type === 'success') borderColor = 'border-[#00f59b]/50';
+  if (type === 'danger') borderColor = 'border-[#ff4d6d]/50';
 
-  toast.className = `p-3.5 rounded-xl border ${borderColor} ${bgColor} text-white text-xs font-semibold shadow-2xl flex items-center justify-between gap-3 transform translate-y-2 opacity-0 transition-all duration-300 pointer-events-auto`;
+  toast.className = `p-3 rounded-xl border ${borderColor} ${bgColor} text-white text-xs font-semibold shadow-2xl flex items-center justify-between gap-2.5`;
   toast.innerHTML = `
     <span>${message}</span>
     <button onclick="this.parentElement.remove()" class="text-[#8899a6] hover:text-white">&times;</button>
   `;
 
   container.appendChild(toast);
-  setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
   setTimeout(() => {
-    toast.classList.add('opacity-0', 'translate-y-2');
+    toast.style.opacity = '0';
     setTimeout(() => toast.remove(), 300);
-  }, 4000);
+  }, 3500);
 }
 
 function bindUIEvents() {
-  document.getElementById('btnScanNow')?.addEventListener('click', () => triggerAiScan());
+  document.getElementById('btnScanNow')?.addEventListener('click', triggerAiScan);
   document.getElementById('autoPilotToggle')?.addEventListener('change', toggleAutoPilot);
 }

@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>DeepSeek CryptoTrader AI | App de Trading Autónomo</title>
+  <title>CryptoTrader AI</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#0a0d14">
+  <meta name="theme-color" content="#07090e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="CryptoTrader">
@@ -23,439 +23,186 @@
   <!-- Custom Stylesheet -->
   <link rel="stylesheet" href="/style.css">
 </head>
-<body class="bg-[#0a0d14] text-[#f0f4f8] antialiased select-none min-h-screen">
+<body class="bg-[#07090e] text-[#f0f4f8] antialiased select-none min-h-screen pb-12 font-sans">
 
   <!-- ============================================================== -->
-  <!-- TOP APP HEADER -->
+  <!-- CLEAN TOP BAR -->
   <!-- ============================================================== -->
-  <header class="top-header px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2 border-b border-[#1e2638]">
-    <!-- Brand / Logo -->
-    <div class="flex items-center gap-2.5 sm:gap-3">
-      <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-[#00f2fe] via-[#00f59b] to-[#4facfe] flex items-center justify-center shadow-[0_0_16px_rgba(0,242,254,0.35)] shrink-0">
-        <i data-lucide="cpu" class="w-5 h-5 sm:w-6 sm:h-6 text-black"></i>
+  <header class="top-header px-4 py-3 flex items-center justify-between border-b border-[#151c2c]">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#00f2fe] to-[#00f59b] flex items-center justify-center shadow-[0_0_12px_rgba(0,242,254,0.3)]">
+        <i data-lucide="zap" class="w-4 h-4 text-black"></i>
       </div>
       <div>
-        <div class="flex items-center gap-1.5 sm:gap-2">
-          <h1 class="font-extrabold text-sm sm:text-base tracking-wide text-white">DEEPSEEK <span class="text-[#00f2fe]">AI TRADER</span></h1>
-          <span class="px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold bg-[#00f59b]/20 text-[#00f59b] border border-[#00f59b]/40 whitespace-nowrap">
-            🎯 META +$10
-          </span>
-        </div>
-        <div class="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-[#8899a6]">
-          <span id="binanceWsStatus" class="flex items-center gap-1 font-mono">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#00f59b] pulse-dot"></span> Futuros Live
-          </span>
+        <h1 class="font-extrabold text-sm tracking-wide text-white leading-tight">CryptoTrader <span class="text-[#00f2fe]">AI</span></h1>
+        <div class="flex items-center gap-1.5 text-[10px] text-[#6b7c93] font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#00f59b] pulse-dot"></span>
+          <span id="binanceWsStatus" class="text-[#00f59b]">Binance Futures</span>
           <span>•</span>
-          <span class="text-[#00f2fe] font-semibold">100% Autónomo</span>
+          <span class="text-[#8899a6]">SQLite DB</span>
         </div>
       </div>
     </div>
 
-    <!-- Capital Ribbon (Desktop & Tablet) -->
-    <div class="hidden md:flex items-center gap-3 lg:gap-4 bg-[#111622] px-3.5 py-1.5 rounded-xl border border-[#1e2638] text-xs">
-      <div>
-        <span class="text-[9px] text-[#8899a6] block font-medium">Balance</span>
-        <span id="walletBalance" class="font-mono font-extrabold text-xs sm:text-sm text-white">$1,000.00</span>
-      </div>
-      <div class="h-5 w-[1px] bg-[#1e2638]"></div>
-      <div>
-        <span class="text-[9px] text-[#8899a6] block font-medium">Total Equity</span>
-        <span id="walletEquity" class="font-mono font-extrabold text-xs sm:text-sm text-[#00f2fe]">$1,000.00</span>
-      </div>
-      <div class="h-5 w-[1px] bg-[#1e2638]"></div>
-      <div>
-        <span class="text-[9px] text-[#8899a6] block font-medium">Ganancia Neta</span>
-        <span id="statTotalProfitHeader" class="font-mono font-extrabold text-xs sm:text-sm text-[#00f59b]">+$0.00</span>
-      </div>
-      <div class="h-5 w-[1px] bg-[#1e2638] hidden lg:block"></div>
-      <div class="hidden lg:block">
-        <span class="text-[9px] text-[#8899a6] block font-medium">Efectividad</span>
-        <span id="walletWinRate" class="font-mono font-bold text-xs sm:text-sm text-[#ffd166]">0.0% (0W/0L)</span>
-      </div>
-    </div>
-
-    <!-- Mobile Quick Equity Pill -->
-    <div class="md:hidden flex items-center gap-2 bg-[#111622] px-2.5 py-1 rounded-lg border border-[#1e2638]">
-      <div>
-        <span class="text-[9px] text-[#8899a6] block">Equity</span>
-        <span id="walletEquityMobile" class="font-mono font-extrabold text-xs text-[#00f2fe]">$1,000.00</span>
-      </div>
-      <span id="statTotalProfitMobile" class="text-[10px] font-mono font-bold text-[#00f59b]">+$0.00</span>
-    </div>
-
-    <!-- Actions & Config Button -->
-    <div class="flex items-center gap-1.5 sm:gap-2">
-      <button onclick="resetPaperWallet()" title="Reiniciar Balance a $1,000 USDT" class="p-2 sm:p-2.5 rounded-lg bg-[#111622] hover:bg-[#161d2d] border border-[#1e2638] text-[#8899a6] hover:text-[#ffd166] transition-colors">
-        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+    <!-- Actions -->
+    <div class="flex items-center gap-2">
+      <button onclick="resetPaperWallet()" title="Reiniciar Balance" class="p-2 rounded-xl bg-[#0f1422] border border-[#1b2337] text-[#8899a6] hover:text-[#ffd166] transition-colors">
+        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
       </button>
-
-      <button onclick="openSettingsModal()" class="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg bg-[#111622] hover:bg-[#161d2d] border border-[#1e2638] text-white text-xs font-bold flex items-center gap-1.5 transition-colors">
-        <i data-lucide="settings" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00f2fe]"></i>
-        <span class="hidden sm:inline">Ajustes</span>
+      <button onclick="openSettingsModal()" class="p-2 rounded-xl bg-[#0f1422] border border-[#1b2337] text-[#8899a6] hover:text-white transition-colors">
+        <i data-lucide="sliders" class="w-4 h-4 text-[#00f2fe]"></i>
       </button>
     </div>
   </header>
 
   <!-- ============================================================== -->
-  <!-- MOBILE TOP SEGMENTED SWITCHER -->
+  <!-- MAIN CLEAN MOBILE CONTAINER -->
   <!-- ============================================================== -->
-  <div class="lg:hidden bg-[#0d111a] border-b border-[#1e2638] px-3 py-2 flex items-center justify-between gap-2 text-xs">
-    <div class="flex items-center gap-1 w-full bg-[#080a0f] p-1 rounded-xl border border-[#1e2638]">
-      <button onclick="switchTab('tab-overview')" id="btn-tab-overview" class="flex-1 py-1.5 text-center font-bold rounded-lg text-xs transition-all bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/40">
-        📊 Panel
-      </button>
-      <button onclick="switchTab('tab-ai')" id="btn-tab-ai" class="flex-1 py-1.5 text-center font-bold rounded-lg text-xs transition-all text-[#8899a6] hover:text-white">
-        🧠 DeepSeek IA
-      </button>
-      <button onclick="switchTab('tab-history')" id="btn-tab-history" class="flex-1 py-1.5 text-center font-bold rounded-lg text-xs transition-all text-[#8899a6] hover:text-white">
-        📜 Historial
-      </button>
-    </div>
-  </div>
+  <main class="px-3.5 py-4 max-w-md mx-auto space-y-4">
 
-  <!-- ============================================================== -->
-  <!-- STRATEGY SAFETY RIBBON (DESKTOP) & WATCHLIST BAR -->
-  <!-- ============================================================== -->
-  <div class="bg-[#0d111a] border-b border-[#1e2638] px-3 sm:px-4 py-2 flex items-center justify-between gap-3 text-xs overflow-x-auto">
-    <div class="hidden lg:flex items-center gap-4 text-[#8899a6] shrink-0">
-      <div class="flex items-center gap-1.5">
-        <span class="text-[#00f59b] font-bold">🎯 Meta:</span>
-        <span class="text-white font-mono font-bold">+$10.00 USDT (Cuenta a $1,010)</span>
-      </div>
-      <span class="text-gray-600">•</span>
-      <div class="flex items-center gap-1.5">
-        <span class="text-[#00f2fe] font-bold">🛡️ Micro-Trades:</span>
-        <span class="text-white font-mono font-bold">$50 USDT (5%) por trade</span>
-      </div>
-      <span class="text-gray-600">•</span>
-      <div class="flex items-center gap-1.5">
-        <span class="text-[#ffd166] font-bold">🔒 Reserva:</span>
-        <span class="text-white font-mono font-bold">≥ $900 USDT (90% Seguros)</span>
-      </div>
-    </div>
-
-    <!-- Watchlist quick tickers (Scrollable on mobile) -->
-    <div class="flex items-center gap-2 overflow-x-auto w-full lg:w-auto py-0.5" id="watchlistBar">
-      <!-- Rendered dynamically by app.js -->
-    </div>
-  </div>
-
-  <!-- ============================================================== -->
-  <!-- GLOBAL GOAL PROGRESS CARD ($10 TOTAL GOAL) -->
-  <!-- ============================================================== -->
-  <div class="px-3 sm:px-4 pt-3 max-w-[1600px] mx-auto">
-    <div class="card p-3.5 sm:p-4 bg-gradient-to-r from-[#111622] via-[#161d2d] to-[#111622] border-[#2a364f]">
-      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-        <div class="flex items-center gap-2.5">
-          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#00f59b]/20 flex items-center justify-center shrink-0">
-            <i data-lucide="trophy" class="w-4 h-4 text-[#00f59b]"></i>
-          </div>
-          <div>
-            <h3 class="font-extrabold text-xs sm:text-sm text-white">META GLOBAL DE GANANCIA: <span class="text-[#00f59b]">+$10.00 USD</span></h3>
-            <p class="text-[10px] sm:text-[11px] text-[#8899a6]">Micro-operaciones seguras sumando beneficios hasta alcanzar $1,010.00 USDT</p>
-          </div>
-        </div>
-        <div class="text-right font-mono">
-          <span class="text-[9px] sm:text-[10px] text-[#8899a6] block">Ganancia Acumulada</span>
-          <span id="globalGoalAmount" class="font-extrabold text-xs sm:text-base text-[#00f59b]">+$0.00 / $10.00 USDT (0%)</span>
+    <!-- 1. ACCOUNT HERO CARD (Minimalist & High Impact) -->
+    <div class="card p-4 bg-gradient-to-b from-[#0f1523] to-[#0a0e18] border-[#1c263c] shadow-lg">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs font-semibold text-[#8899a6]">Total Equity</span>
+        <div class="flex items-center gap-1.5">
+          <span class="text-[11px] font-mono font-bold text-[#8899a6]">Auto-IA</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="autoPilotToggle" checked class="sr-only peer">
+            <div class="w-9 h-5 bg-[#1a2336] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#00f59b]"></div>
+          </label>
         </div>
       </div>
-      <div class="w-full h-2.5 sm:h-3 bg-[#080a0f] rounded-full overflow-hidden border border-[#1e2638]">
-        <div id="globalGoalProgressBar" class="h-full bg-gradient-to-r from-[#00f2fe] to-[#00f59b] transition-all duration-500 shadow-[0_0_12px_rgba(0,245,155,0.5)]" style="width: 0%"></div>
+
+      <!-- Main Balance Number -->
+      <div class="flex items-baseline gap-2 mb-3">
+        <span id="walletEquity" class="font-mono font-black text-2xl sm:text-3xl text-white tracking-tight">$1,000.00</span>
+        <span id="statTotalProfitHeader" class="font-mono font-extrabold text-sm text-[#00f59b]">+$0.00</span>
+      </div>
+
+      <!-- Goal Progress Bar -->
+      <div class="bg-[#07090e] p-2.5 rounded-xl border border-[#172033] mb-3">
+        <div class="flex items-center justify-between text-[11px] font-mono mb-1.5">
+          <span class="text-[#8899a6]">🎯 Meta de Ganancia</span>
+          <span id="globalGoalAmount" class="font-bold text-[#00f59b]">+$0.00 / $10.00</span>
+        </div>
+        <div class="w-full h-2 bg-[#121929] rounded-full overflow-hidden">
+          <div id="globalGoalProgressBar" class="h-full bg-gradient-to-r from-[#00f2fe] to-[#00f59b] transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Row -->
+      <div class="grid grid-cols-3 gap-2 pt-1 border-t border-[#151c2c] text-center font-mono">
+        <div>
+          <span class="text-[10px] text-[#6b7c93] block">Balance</span>
+          <span id="walletBalance" class="text-xs font-bold text-white">$1,000.00</span>
+        </div>
+        <div>
+          <span class="text-[10px] text-[#6b7c93] block">Margen Disp.</span>
+          <span id="walletAvailableMargin" class="text-xs font-bold text-[#00f2fe]">$900.00</span>
+        </div>
+        <div>
+          <span class="text-[10px] text-[#6b7c93] block">Acierto</span>
+          <span id="walletWinRate" class="text-xs font-bold text-[#ffd166]">0.0%</span>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- ============================================================== -->
-  <!-- MAIN APP CONTAINER -->
-  <!-- ============================================================== -->
-  <main class="p-3 sm:p-4 max-w-[1600px] mx-auto">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+    <!-- Quick AI Scan Trigger Button -->
+    <button id="btnScanNow" class="btn-primary w-full py-2.5 px-4 text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md">
+      <i data-lucide="sparkles" class="w-4 h-4"></i>
+      <span>Escanear Mercado con DeepSeek</span>
+    </button>
 
-      <!-- ========================================================== -->
-      <!-- TAB / COLUMN 1: OVERVIEW & ACTIVE POSITIONS -->
-      <!-- ========================================================== -->
-      <div id="tab-overview" class="mobile-tab-view active lg:col-span-7 flex flex-col gap-4">
-
-        <!-- Active Live Positions Card -->
-        <div class="card p-4 sm:p-5">
-          <div class="flex items-center justify-between mb-3.5">
-            <div class="flex items-center gap-2 sm:gap-2.5">
-              <div class="w-7 h-7 rounded-lg bg-[#00f2fe]/15 flex items-center justify-center shrink-0">
-                <i data-lucide="activity" class="w-4 h-4 text-[#00f2fe]"></i>
-              </div>
-              <div>
-                <h3 class="font-extrabold text-xs sm:text-sm text-white">Operaciones Activas en Vivo</h3>
-                <p class="text-[10px] sm:text-[11px] text-[#8899a6]">Gestionadas 100% por DeepSeek IA de forma autónoma</p>
-              </div>
-            </div>
-            <span id="openPositionsBadge" class="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-mono font-bold bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/30">
-              0 / 2 Activas
-            </span>
-          </div>
-
-          <!-- Dynamic Live Positions -->
-          <div id="livePositionsContainer" class="space-y-3">
-            <!-- Rendered dynamically -->
-          </div>
+    <!-- 2. OPERACIONES ACTIVAS EN VIVO -->
+    <div class="space-y-2.5">
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center gap-1.5">
+          <i data-lucide="activity" class="w-4 h-4 text-[#00f2fe]"></i>
+          <h2 class="font-extrabold text-xs uppercase tracking-wider text-white">Operaciones Activas</h2>
         </div>
-
-        <!-- Closed Operations History (Visible on Desktop here, or in Tab on Mobile) -->
-        <div class="hidden lg:block card p-5">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2.5">
-              <div class="w-7 h-7 rounded-lg bg-[#00f59b]/15 flex items-center justify-center">
-                <i data-lucide="check-circle-2" class="w-4 h-4 text-[#00f59b]"></i>
-              </div>
-              <div>
-                <h3 class="font-extrabold text-sm text-white">Historial de Ganancias & Cierres</h3>
-                <p class="text-[11px] text-[#8899a6]">Registro completo de las operaciones cerradas por la IA</p>
-              </div>
-            </div>
-            <div class="text-xs font-mono text-[#8899a6]">
-              Total trades: <span id="statTotalTrades" class="text-white font-bold">0</span>
-            </div>
-          </div>
-
-          <div class="overflow-x-auto max-h-[360px] overflow-y-auto">
-            <table class="w-full text-left">
-              <thead>
-                <tr class="text-[11px] text-[#5c6b7d] uppercase border-b border-[#1e2638] font-mono">
-                  <th class="pb-2.5 px-3">Par</th>
-                  <th class="pb-2.5 px-3">Tipo</th>
-                  <th class="pb-2.5 px-3">Entrada</th>
-                  <th class="pb-2.5 px-3">Salida</th>
-                  <th class="pb-2.5 px-3">Ganancia Neta</th>
-                  <th class="pb-2.5 px-3">Motivo Cierre</th>
-                  <th class="pb-2.5 px-3">Tiempo</th>
-                </tr>
-              </thead>
-              <tbody id="tradeHistoryTableBody">
-                <!-- Rendered dynamically -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-
+        <span id="openPositionsBadge" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#00f2fe]/15 text-[#00f2fe] border border-[#00f2fe]/30">
+          0 Activas
+        </span>
       </div>
 
-      <!-- ========================================================== -->
-      <!-- TAB / COLUMN 2: DEEPSEEK AI BRAIN & TERMINAL -->
-      <!-- ========================================================== -->
-      <div id="tab-ai" class="mobile-tab-view lg:col-span-5 flex flex-col gap-4">
-
-        <!-- DeepSeek AI Autonomous Brain Card -->
-        <div class="card p-4 sm:p-5 relative overflow-hidden">
-          <div class="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-[#00f2fe] via-[#00f59b] to-[#4facfe]"></div>
-
-          <div class="flex items-center justify-between mb-3.5">
-            <div class="flex items-center gap-2 sm:gap-2.5">
-              <div class="w-7 h-7 rounded-lg bg-[#00f2fe]/15 flex items-center justify-center shrink-0">
-                <i data-lucide="brain" class="w-4 h-4 text-[#00f2fe]"></i>
-              </div>
-              <div>
-                <h3 class="font-extrabold text-xs sm:text-sm text-white">Cerebro DeepSeek IA</h3>
-                <p class="text-[10px] sm:text-[11px] text-[#8899a6]">Escaneo y ejecución algorítmica de futuros</p>
-              </div>
-            </div>
-            <span id="autoPilotStatusBadge" class="flex items-center gap-1.5 text-[10px] sm:text-xs font-mono">
-              <span class="w-2 h-2 rounded-full bg-[#00f59b] pulse-dot"></span> <span class="text-[#00f59b] font-bold">AUTO ACTIVO</span>
-            </span>
-          </div>
-
-          <!-- Master Auto-Pilot Toggle Card -->
-          <div class="bg-[#080a0f] p-3 rounded-xl border border-[#1e2638] flex items-center justify-between mb-3.5">
-            <div>
-              <span class="text-xs font-bold text-white block">Ejecución Autónoma IA</span>
-              <span class="text-[10px] text-[#8899a6]">Apertura y cierre automático con DeepSeek</span>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="autoPilotToggle" checked class="sr-only peer">
-              <div class="w-11 h-6 bg-[#161d2d] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00f59b]"></div>
-            </label>
-          </div>
-
-          <!-- Action Trigger Button -->
-          <button id="btnScanNow" class="btn-primary w-full py-2.5 sm:py-3 px-4 text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg mb-3.5">
-            <i data-lucide="sparkles" class="w-4 h-4"></i>
-            <span>Escanear con DeepSeek Ahora</span>
-          </button>
-
-          <!-- Latest AI Signal / Reasoning Display Card -->
-          <div id="aiSignalCard" class="bg-[#0d111a] p-3 sm:p-4 rounded-xl border border-[#1e2638]">
-            <!-- Rendered dynamically by app.js -->
-          </div>
-        </div>
-
-        <!-- Live AI Decision Stream Log Terminal -->
-        <div class="card p-4 sm:p-5">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              <i data-lucide="terminal" class="w-4 h-4 text-[#00f2fe]"></i>
-              <h4 class="font-bold text-xs text-white uppercase tracking-wider">Terminal de Eventos IA</h4>
-            </div>
-            <span class="text-[10px] text-[#8899a6] font-mono">En Vivo</span>
-          </div>
-
-          <div id="systemLogsContainer" class="terminal-box p-3 max-h-[260px] sm:max-h-[300px] overflow-y-auto">
-            <!-- Rendered dynamically -->
-          </div>
-        </div>
-
+      <!-- Container of Active Cards -->
+      <div id="livePositionsContainer" class="space-y-2.5">
+        <!-- Rendered dynamically -->
       </div>
-
-      <!-- ========================================================== -->
-      <!-- TAB 3: MOBILE HISTORY VIEW (Cards + Details) -->
-      <!-- ========================================================== -->
-      <div id="tab-history" class="mobile-tab-view lg:hidden flex-col gap-3">
-        <div class="card p-4">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              <div class="w-7 h-7 rounded-lg bg-[#00f59b]/15 flex items-center justify-center shrink-0">
-                <i data-lucide="check-circle-2" class="w-4 h-4 text-[#00f59b]"></i>
-              </div>
-              <div>
-                <h3 class="font-extrabold text-xs sm:text-sm text-white">Historial de Operaciones</h3>
-                <p class="text-[10px] text-[#8899a6]">Trades ejecutados y cerrados por la IA</p>
-              </div>
-            </div>
-            <span class="text-xs font-mono text-[#8899a6]">Total: <span id="statTotalTradesMobile" class="text-white font-bold">0</span></span>
-          </div>
-
-          <!-- Mobile Cards Container for History -->
-          <div id="mobileHistoryCardsContainer" class="space-y-2.5">
-            <!-- Rendered dynamically by app.js -->
-          </div>
-        </div>
-      </div>
-
     </div>
+
+    <!-- 3. HISTORIAL DE OPERACIONES (SQLite DB) -->
+    <div class="space-y-2.5 pt-2">
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center gap-1.5">
+          <i data-lucide="history" class="w-4 h-4 text-[#00f59b]"></i>
+          <h2 class="font-extrabold text-xs uppercase tracking-wider text-white">Historial de Ganancias</h2>
+        </div>
+        <span class="text-[10px] font-mono text-[#6b7c93]">
+          Total: <b id="statTotalTrades" class="text-white">0</b> trades
+        </span>
+      </div>
+
+      <!-- Container of Closed Trades Cards -->
+      <div id="tradeHistoryContainer" class="space-y-2">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
   </main>
-
-  <!-- ============================================================== -->
-  <!-- MOBILE BOTTOM NAVIGATION BAR -->
-  <!-- ============================================================== -->
-  <nav id="mobileBottomNav" class="lg:hidden bottom-nav flex items-center justify-around px-2 py-1">
-    <button onclick="switchTab('tab-overview')" id="nav-btn-overview" class="bottom-nav-item active">
-      <div class="nav-icon-container p-1 mb-0.5">
-        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
-      </div>
-      <span>Panel</span>
-    </button>
-    <button onclick="switchTab('tab-ai')" id="nav-btn-ai" class="bottom-nav-item">
-      <div class="nav-icon-container p-1 mb-0.5">
-        <i data-lucide="brain" class="w-5 h-5"></i>
-      </div>
-      <span>DeepSeek</span>
-    </button>
-    <button onclick="switchTab('tab-history')" id="nav-btn-history" class="bottom-nav-item">
-      <div class="nav-icon-container p-1 mb-0.5">
-        <i data-lucide="history" class="w-5 h-5"></i>
-      </div>
-      <span>Historial</span>
-    </button>
-    <button onclick="openSettingsModal()" class="bottom-nav-item">
-      <div class="nav-icon-container p-1 mb-0.5">
-        <i data-lucide="sliders" class="w-5 h-5"></i>
-      </div>
-      <span>Ajustes</span>
-    </button>
-  </nav>
 
   <!-- ============================================================== -->
   <!-- SETTINGS MODAL -->
   <!-- ============================================================== -->
   <div id="settingsModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 modal-backdrop hidden">
-    <div class="bg-[#111622] border border-[#2a364f] rounded-t-2xl sm:rounded-2xl w-full max-w-xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 shadow-2xl relative">
-      <div class="flex items-center justify-between mb-4 pb-2 border-b border-[#1e2638]">
+    <div class="bg-[#0f1422] border border-[#1e273d] rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5 shadow-2xl relative">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-[#182136]">
         <div class="flex items-center gap-2">
-          <i data-lucide="sliders" class="w-5 h-5 text-[#00f2fe]"></i>
-          <h3 class="font-extrabold text-sm sm:text-base text-white">Configuración del Sistema</h3>
+          <i data-lucide="sliders" class="w-4 h-4 text-[#00f2fe]"></i>
+          <h3 class="font-extrabold text-sm text-white">Configuración</h3>
         </div>
         <button onclick="closeSettingsModal()" class="text-[#8899a6] hover:text-white text-xl font-bold p-1">&times;</button>
       </div>
 
       <div class="space-y-3.5">
-        <!-- DeepSeek API Settings -->
-        <div class="bg-[#0d111a] p-3 sm:p-3.5 rounded-xl border border-[#1e2638]">
-          <h4 class="text-xs font-bold text-[#00f2fe] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <i data-lucide="key" class="w-3.5 h-3.5"></i>
-            <span>DeepSeek API (IA)</span>
-          </h4>
-          <div class="space-y-2">
-            <div>
-              <label class="text-[11px] text-[#8899a6] block mb-1">DeepSeek API Key</label>
-              <input type="password" id="inputDeepSeekKey" placeholder="sk-..." class="w-full bg-[#080a0f] border border-[#1e2638] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-[#00f2fe] focus:outline-none">
-            </div>
-            <div>
-              <label class="text-[11px] text-[#8899a6] block mb-1">Modelo DeepSeek</label>
-              <select id="selectDeepSeekModel" class="w-full bg-[#080a0f] border border-[#1e2638] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-[#00f2fe] focus:outline-none">
-                <option value="deepseek-chat">deepseek-chat (DeepSeek-V3 - Rápido y preciso)</option>
-                <option value="deepseek-reasoner">deepseek-reasoner (DeepSeek-R1 - Razonamiento profundo)</option>
-              </select>
-            </div>
-          </div>
+        <!-- DeepSeek API Key -->
+        <div class="bg-[#07090e] p-3 rounded-xl border border-[#172033]">
+          <label class="text-[11px] font-bold text-[#00f2fe] block mb-1">DeepSeek API Key</label>
+          <input type="password" id="inputDeepSeekKey" placeholder="sk-..." class="w-full bg-[#0f1422] border border-[#1e273d] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-[#00f2fe] focus:outline-none">
         </div>
 
-        <!-- Strategy Parameters -->
-        <div class="bg-[#0d111a] p-3 sm:p-3.5 rounded-xl border border-[#1e2638]">
-          <h4 class="text-xs font-bold text-[#00f59b] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <i data-lucide="target" class="w-3.5 h-3.5"></i>
-            <span>Parámetros de la Estrategia</span>
-          </h4>
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="text-[10px] text-[#8899a6] block mb-1">Meta Global Total ($)</label>
-              <input type="number" id="inputTargetProfit" value="10.0" min="1" step="1" class="w-full bg-[#080a0f] border border-[#1e2638] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
-            </div>
-            <div>
-              <label class="text-[10px] text-[#8899a6] block mb-1">Margen por Trade (% Capital)</label>
-              <input type="number" id="inputRiskPercent" value="5" min="1" max="15" class="w-full bg-[#080a0f] border border-[#1e2638] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
-            </div>
+        <!-- Strategy Target -->
+        <div class="bg-[#07090e] p-3 rounded-xl border border-[#172033] grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[10px] text-[#8899a6] block mb-1">Meta Total ($)</label>
+            <input type="number" id="inputTargetProfit" value="10.0" min="1" step="1" class="w-full bg-[#0f1422] border border-[#1e273d] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
+          </div>
+          <div>
+            <label class="text-[10px] text-[#8899a6] block mb-1">Margen (% Capital)</label>
+            <input type="number" id="inputRiskPercent" value="5" min="1" max="15" class="w-full bg-[#0f1422] border border-[#1e273d] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
           </div>
         </div>
 
         <!-- Telegram Notifications -->
-        <div class="bg-[#0d111a] p-3 sm:p-3.5 rounded-xl border border-[#1e2638]">
-          <div class="flex items-center justify-between mb-2">
-            <h4 class="text-xs font-bold text-[#ffd166] uppercase tracking-wider flex items-center gap-1.5">
-              <i data-lucide="send" class="w-3.5 h-3.5"></i>
-              <span>Alertas en Vivo por Telegram</span>
-            </h4>
-            <label class="inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="checkboxTelegramEnabled" class="sr-only peer">
-              <div class="w-8 h-4 bg-[#161d2d] rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#ffd166]"></div>
-            </label>
+        <div class="bg-[#07090e] p-3 rounded-xl border border-[#172033] space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-[#ffd166]">Alertas por Telegram</span>
+            <input type="checkbox" id="checkboxTelegramEnabled" class="accent-[#ffd166]">
           </div>
-          <div class="space-y-2">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <label class="text-[11px] text-[#8899a6] block mb-1">Telegram Bot Token</label>
-                <input type="password" id="inputTelegramToken" placeholder="123456:ABC-DEF..." class="w-full bg-[#080a0f] border border-[#1e2638] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-[#00f2fe] focus:outline-none">
-              </div>
-              <div>
-                <label class="text-[11px] text-[#8899a6] block mb-1">Telegram Chat ID</label>
-                <input type="text" id="inputTelegramChatId" placeholder="123456789" class="w-full bg-[#080a0f] border border-[#1e2638] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-[#00f2fe] focus:outline-none">
-              </div>
-            </div>
-            <button onclick="testTelegram()" class="px-3 py-1.5 bg-[#161d2d] hover:bg-[#1e2638] text-white text-xs font-semibold rounded-lg border border-[#2a364f] flex items-center gap-1">
-              <i data-lucide="bell" class="w-3.5 h-3.5 text-[#ffd166]"></i>
-              <span>Enviar Alerta de Prueba</span>
-            </button>
-          </div>
+          <input type="password" id="inputTelegramToken" placeholder="Bot Token" class="w-full bg-[#0f1422] border border-[#1e273d] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
+          <input type="text" id="inputTelegramChatId" placeholder="Chat ID" class="w-full bg-[#0f1422] border border-[#1e273d] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
         </div>
-
       </div>
 
-      <div class="flex items-center justify-end gap-2.5 mt-5">
-        <button onclick="closeSettingsModal()" class="px-3.5 py-2 rounded-lg bg-[#161d2d] text-[#8899a6] hover:text-white text-xs font-bold">Cancelar</button>
-        <button onclick="saveSettings()" class="btn-primary px-4 py-2 rounded-lg text-xs font-extrabold uppercase">Guardar Cambios</button>
+      <div class="flex items-center justify-end gap-2 mt-5">
+        <button onclick="closeSettingsModal()" class="px-3 py-2 rounded-lg bg-[#182136] text-[#8899a6] hover:text-white text-xs font-bold">Cancelar</button>
+        <button onclick="saveSettings()" class="btn-primary px-4 py-2 rounded-lg text-xs font-extrabold uppercase">Guardar</button>
       </div>
     </div>
   </div>
 
   <!-- Toast Notification Container -->
-  <div id="toastContainer" class="fixed bottom-16 sm:bottom-4 right-3 sm:right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm"></div>
+  <div id="toastContainer" class="fixed bottom-4 right-3 left-3 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none max-w-sm"></div>
 
   <!-- App Script -->
   <script src="/app.js"></script>

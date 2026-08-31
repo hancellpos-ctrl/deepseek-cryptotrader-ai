@@ -1,16 +1,7 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 const { getConfig } = require('./config');
-
-const WALLET_FILE = path.join(__dirname, '..', 'data', 'paper_wallet.json');
-const TRADES_FILE = path.join(__dirname, '..', 'data', 'trade_history.json');
-
-function ensureDataDir() {
-  const dataDir = path.join(__dirname, '..', 'data');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-}
+const { dbAsync } = require('./db');
 
 function formatPricePrecision(price) {
   if (price === null || price === undefined || isNaN(price)) return 0;
@@ -22,58 +13,125 @@ function formatPricePrecision(price) {
 
 class PaperTradingEngine {
   constructor() {
-    this.balance = 1000.0; // 1,000 USDT default
-    this.positions = []; // Active futures positions
-    this.tradeHistory = []; // Past closed trades
+    this.balance = 1000.0;
+    this.positions = [];
+    this.tradeHistory = [];
     this.listeners = [];
-    this.loadState();
+    this.initialized = false;
+    this.initDatabase();
   }
 
-  loadState() {
-    ensureDataDir();
+  async initDatabase() {
     try {
-      if (fs.existsSync(WALLET_FILE)) {
-        const walletData = JSON.parse(fs.readFileSync(WALLET_FILE, 'utf8'));
-        this.balance = typeof walletData.balance === 'number' ? walletData.balance : 1000.0;
-        this.positions = Array.isArray(walletData.positions) ? walletData.positions : [];
+      // 1. Load wallet
+      const walletRow = await dbAsync.get('SELECT balance FROM wallet WHERE id = 1');
+      if (walletRow && typeof walletRow.balance === 'number') {
+        this.balance = walletRow.balance;
       } else {
         const config = getConfig();
         this.balance = config.paperInitialBalance || 1000.0;
-        this.positions = [];
-        this.saveWalletState();
+        await dbAsync.run('INSERT OR REPLACE INTO wallet (id, balance, initial_balance) VALUES (1, ?, ?)', [this.balance, this.balance]);
       }
 
-      if (fs.existsSync(TRADES_FILE)) {
-        const tradesData = JSON.parse(fs.readFileSync(TRADES_FILE, 'utf8'));
-        this.tradeHistory = Array.isArray(tradesData) ? tradesData : [];
-      }
-    } catch (err) {
-      console.error('[PaperEngine] Error loading state, initializing fresh:', err.message);
-      this.balance = 1000.0;
-      this.positions = [];
-      this.tradeHistory = [];
+      // 2. Load open positions
+      const posRows = await dbAsync.all("SELECT * FROM positions WHERE status = 'OPEN'");
+      this.positions = posRows.map(r => ({
+        id: r.id,
+        symbol: r.symbol,
+        side: r.side,
+        leverage: r.leverage,
+        margin: r.margin,
+        quantity: r.quantity,
+        entryPrice: r.entry_price,
+        currentPrice: r.current_price,
+        positionValue: Number((r.margin * r.leverage).toFixed(2)),
+        takeProfit: r.take_profit,
+        stopLoss: r.stop_loss,
+        liquidationPrice: this.calculateLiquidationPrice(r.side, r.entry_price, r.leverage),
+        unrealizedPnL: 0.0,
+        unrealizedRoePercent: 0.0,
+        openTime: new Date(r.opened_at).toISOString(),
+        timestamp: r.opened_at,
+        aiReason: r.ai_reason
+      }));
+
+      // 3. Load trade history
+      const historyRows = await dbAsync.all('SELECT * FROM trade_history ORDER BY closed_at DESC LIMIT 100');
+      this.tradeHistory = historyRows.map(r => ({
+        id: r.id,
+        symbol: r.symbol,
+        side: r.side,
+        leverage: r.leverage,
+        margin: r.margin,
+        quantity: r.quantity,
+        entryPrice: r.entry_price,
+        exitPrice: r.exit_price,
+        realizedPnL: r.realized_pnl,
+        roiPercent: r.roi_percent,
+        closeReason: r.close_reason,
+        aiReason: r.ai_reason,
+        openTime: new Date(r.opened_at).toISOString(),
+        closeTime: new Date(r.closed_at).toISOString(),
+        durationSeconds: r.duration_seconds
+      }));
+
+      this.initialized = true;
+      console.log(`[PaperEngine] Base de Datos SQLite cargada: Balance $${this.balance} | ${this.positions.length} pos activas | ${this.tradeHistory.length} trades en historial`);
+    } catch (e) {
+      console.error('[PaperEngine] Error initializing SQLite state:', e.message);
+      this.initialized = true;
     }
   }
 
-  saveWalletState() {
-    ensureDataDir();
+  async saveWalletBalance() {
     try {
-      fs.writeFileSync(
-        WALLET_FILE,
-        JSON.stringify({ balance: this.balance, positions: this.positions }, null, 2),
-        'utf8'
-      );
-    } catch (err) {
-      console.error('[PaperEngine] Failed to save wallet state:', err.message);
+      await dbAsync.run('UPDATE wallet SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1', [this.balance]);
+    } catch (e) {
+      console.error('[DB] Error saving wallet balance:', e.message);
     }
   }
 
-  saveTradeHistory() {
-    ensureDataDir();
+  async savePositionToDb(pos) {
     try {
-      fs.writeFileSync(TRADES_FILE, JSON.stringify(this.tradeHistory, null, 2), 'utf8');
-    } catch (err) {
-      console.error('[PaperEngine] Failed to save trade history:', err.message);
+      await dbAsync.run(`
+        INSERT OR REPLACE INTO positions (
+          id, symbol, side, leverage, margin, quantity,
+          entry_price, current_price, take_profit, stop_loss,
+          ai_reason, opened_at, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')
+      `, [
+        pos.id, pos.symbol, pos.side, pos.leverage, pos.margin, pos.quantity,
+        pos.entryPrice, pos.currentPrice, pos.takeProfit, pos.stopLoss,
+        pos.aiReason, pos.timestamp
+      ]);
+    } catch (e) {
+      console.error('[DB] Error inserting position:', e.message);
+    }
+  }
+
+  async deletePositionFromDb(positionId) {
+    try {
+      await dbAsync.run("DELETE FROM positions WHERE id = ?", [positionId]);
+    } catch (e) {
+      console.error('[DB] Error deleting position:', e.message);
+    }
+  }
+
+  async saveClosedTradeToDb(trade) {
+    try {
+      await dbAsync.run(`
+        INSERT OR REPLACE INTO trade_history (
+          id, symbol, side, leverage, margin, quantity,
+          entry_price, exit_price, realized_pnl, roi_percent,
+          close_reason, ai_reason, opened_at, closed_at, duration_seconds
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        trade.id, trade.symbol, trade.side, trade.leverage, trade.margin, trade.quantity,
+        trade.entryPrice, trade.exitPrice, trade.realizedPnL, trade.roiPercent,
+        trade.closeReason, trade.aiReason, trade.opened_at || Date.now(), Date.now(), trade.durationSeconds
+      ]);
+    } catch (e) {
+      console.error('[DB] Error saving closed trade:', e.message);
     }
   }
 
@@ -91,9 +149,6 @@ class PaperTradingEngine {
     });
   }
 
-  /**
-   * Calculate summary statistics and equity
-   */
   getAccountSummary() {
     let totalUnrealizedPnL = 0;
     let totalUsedMargin = 0;
@@ -131,15 +186,12 @@ class PaperTradingEngine {
       winRate,
       profitFactor,
       totalROI,
-      tradeHistory: this.tradeHistory.slice(0, 50) // Return most recent 50 trades
+      tradeHistory: this.tradeHistory.slice(0, 50)
     };
   }
 
-  /**
-   * Calculate Liquidation Price for Binance Futures
-   */
   calculateLiquidationPrice(side, entryPrice, leverage) {
-    const maintenanceMarginRate = 0.005; // 0.5% default MMR for top pairs
+    const maintenanceMarginRate = 0.005;
     if (side === 'LONG' || side === 'BUY') {
       const liq = entryPrice * (1 - (1 / leverage) + maintenanceMarginRate);
       return formatPricePrecision(Math.max(0, liq));
@@ -149,14 +201,11 @@ class PaperTradingEngine {
     }
   }
 
-  /**
-   * Open a new Paper Futures position
-   */
   openPosition({
     symbol,
-    side, // 'LONG' or 'SHORT'
+    side,
     leverage = 10,
-    marginAmount, // USDT margin to commit
+    marginAmount,
     entryPrice,
     takeProfit,
     stopLoss,
@@ -166,19 +215,16 @@ class PaperTradingEngine {
     const normalizedSide = side.toUpperCase().includes('SHORT') ? 'SHORT' : 'LONG';
     const config = getConfig();
 
-    // 1. Max positions check (safety limit to never risk entire $1k capital)
     const maxPositions = config.maxOpenPositions || 2;
     if (this.positions.length >= maxPositions) {
-      throw new Error(`Límite de seguridad alcanzado: Máximo ${maxPositions} operaciones simultáneas para proteger el 90% del capital.`);
+      throw new Error(`Límite de seguridad alcanzado: Máximo ${maxPositions} operaciones simultáneas.`);
     }
 
-    // 2. Check if position already open on this symbol
     const existing = this.positions.find(p => p.symbol === symbol);
     if (existing) {
-      throw new Error(`Ya existe una operación activa en ${symbol}. Esperando su cierre.`);
+      throw new Error(`Ya existe una operación activa en ${symbol}.`);
     }
 
-    // 3. Margin sizing: 5% of balance ($50 on $1,000)
     if (!marginAmount || marginAmount <= 0) {
       const riskPct = config.riskPerTradePercent || 5;
       marginAmount = (this.balance * riskPct) / 100;
@@ -188,11 +234,9 @@ class PaperTradingEngine {
       throw new Error(`Balance insuficiente ($${this.balance.toFixed(2)}) para margen ($${marginAmount.toFixed(2)})`);
     }
 
-    // 4. Nominal position size in USDT
     const positionValueUSDT = marginAmount * leverage;
     const quantity = Number((positionValueUSDT / entryPrice).toFixed(6));
 
-    // 5. Take Profit & Stop Loss defaults (Micro-scalps of 0.8% with 0.4% risk)
     const tpPct = (config.takeProfitPercent || 0.8) / 100;
     const slPct = (config.stopLossPercent || 0.4) / 100;
 
@@ -232,15 +276,12 @@ class PaperTradingEngine {
     };
 
     this.positions.push(newPosition);
-    this.saveWalletState();
+    this.savePositionToDb(newPosition);
 
     this.emitEvent('POSITION_OPENED', newPosition);
     return newPosition;
   }
 
-  /**
-   * Update active positions based on live market tick
-   */
   updateMarketPrice(symbol, markPrice) {
     let stateChanged = false;
     const positionsToClose = [];
@@ -249,7 +290,6 @@ class PaperTradingEngine {
       if (pos.symbol === symbol) {
         pos.currentPrice = formatPricePrecision(markPrice);
 
-        // Calculate Unrealized PnL
         let pnl = 0;
         if (pos.side === 'LONG') {
           pnl = (markPrice - pos.entryPrice) * pos.quantity;
@@ -261,8 +301,7 @@ class PaperTradingEngine {
         pos.unrealizedRoePercent = Number(((pnl / pos.margin) * 100).toFixed(2));
         stateChanged = true;
 
-        // Trailing Stop / Break-even protection:
-        // If trade is in profit >= +$2.00 USDT, move Stop Loss to Breakeven (+0.1%)
+        // Trailing Stop (al ganar >= $2, mover SL a breakeven)
         if (pos.unrealizedPnL >= 2.0) {
           if (pos.side === 'LONG' && pos.stopLoss < pos.entryPrice) {
             pos.stopLoss = formatPricePrecision(pos.entryPrice * 1.001);
@@ -271,24 +310,22 @@ class PaperTradingEngine {
           }
         }
 
-        // 1. Check Take Profit Hit
+        // Take profit hit
         const hitLongTP = pos.side === 'LONG' && markPrice >= pos.takeProfit;
         const hitShortTP = pos.side === 'SHORT' && markPrice <= pos.takeProfit;
 
         if (hitLongTP || hitShortTP) {
           positionsToClose.push({ pos, price: markPrice, reason: 'TAKE_PROFIT_ALCANZADO' });
         }
-
-        // 2. Check Stop Loss Hit (or Trailing Stop Hit)
+        // Stop loss hit
         else if (pos.side === 'LONG' && markPrice <= pos.stopLoss) {
-          const reason = pos.stopLoss >= pos.entryPrice ? 'TRAILING_STOP_GANANCIA_PROTEGIDA' : 'STOP_LOSS_PROTECCION';
+          const reason = pos.stopLoss >= pos.entryPrice ? 'TRAILING_STOP_GANANCIA' : 'STOP_LOSS_PROTECCION';
           positionsToClose.push({ pos, price: markPrice, reason });
         } else if (pos.side === 'SHORT' && markPrice >= pos.stopLoss) {
-          const reason = pos.stopLoss <= pos.entryPrice ? 'TRAILING_STOP_GANANCIA_PROTEGIDA' : 'STOP_LOSS_PROTECCION';
+          const reason = pos.stopLoss <= pos.entryPrice ? 'TRAILING_STOP_GANANCIA' : 'STOP_LOSS_PROTECCION';
           positionsToClose.push({ pos, price: markPrice, reason });
         }
-
-        // 3. Check Liquidation
+        // Liquidation
         else if (pos.side === 'LONG' && markPrice <= pos.liquidationPrice) {
           positionsToClose.push({ pos, price: pos.liquidationPrice, reason: 'LIQUIDATION' });
         } else if (pos.side === 'SHORT' && markPrice >= pos.liquidationPrice) {
@@ -297,11 +334,6 @@ class PaperTradingEngine {
       }
     });
 
-    if (stateChanged) {
-      this.saveWalletState();
-    }
-
-    // Process any auto-closed positions
     positionsToClose.forEach(({ pos, price, reason }) => {
       this.closePosition(pos.id, price, reason);
     });
@@ -309,9 +341,6 @@ class PaperTradingEngine {
     return stateChanged;
   }
 
-  /**
-   * Close a position (manually or auto-triggered)
-   */
   closePosition(positionId, exitPrice, closeReason = 'MANUAL_CLOSE') {
     const index = this.positions.findIndex(p => p.id === positionId);
     if (index === -1) {
@@ -323,7 +352,7 @@ class PaperTradingEngine {
 
     let realizedPnL = 0;
     if (closeReason === 'LIQUIDATION') {
-      realizedPnL = -pos.margin; // Total margin lost on liquidation
+      realizedPnL = -pos.margin;
     } else {
       if (pos.side === 'LONG') {
         realizedPnL = (finalPrice - pos.entryPrice) * pos.quantity;
@@ -332,12 +361,10 @@ class PaperTradingEngine {
       }
     }
 
-    // Fee simulation (0.04% maker/taker Binance Futures standard fee)
     const totalTradingFee = (pos.positionValue * 2) * 0.0004;
     realizedPnL = Number((realizedPnL - totalTradingFee).toFixed(2));
     const roiPercent = Number(((realizedPnL / pos.margin) * 100).toFixed(2));
 
-    // Update wallet balance
     this.balance += realizedPnL;
     this.balance = Number(Math.max(0, this.balance).toFixed(2));
 
@@ -359,29 +386,31 @@ class PaperTradingEngine {
       openTime: pos.openTime,
       closeTime: new Date().toISOString(),
       durationSeconds: Math.round((Date.now() - pos.timestamp) / 1000),
+      opened_at: pos.timestamp,
       aiReason: pos.aiReason
     };
 
-    // Remove from active positions and save to history
     this.positions.splice(index, 1);
     this.tradeHistory.unshift(closedRecord);
 
-    this.saveWalletState();
-    this.saveTradeHistory();
+    // Save to SQLite
+    this.deletePositionFromDb(pos.id);
+    this.saveClosedTradeToDb(closedRecord);
+    this.saveWalletBalance();
 
     this.emitEvent('POSITION_CLOSED', closedRecord);
     return closedRecord;
   }
 
-  /**
-   * Reset the paper wallet balance and positions
-   */
-  resetWallet(newBalance = 1000.0) {
+  async resetWallet(newBalance = 1000.0) {
     this.balance = Number(newBalance);
     this.positions = [];
     this.tradeHistory = [];
-    this.saveWalletState();
-    this.saveTradeHistory();
+
+    await dbAsync.run('UPDATE wallet SET balance = ?, initial_balance = ? WHERE id = 1', [this.balance, this.balance]);
+    await dbAsync.run('DELETE FROM positions');
+    await dbAsync.run('DELETE FROM trade_history');
+
     this.emitEvent('WALLET_RESET', { balance: this.balance });
     return this.getAccountSummary();
   }

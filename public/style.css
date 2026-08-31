@@ -1,27 +1,23 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  --bg-main: #0a0d14;
-  --bg-card: #111622;
-  --bg-card-hover: #161d2d;
-  --bg-panel: #0d111a;
-  --border-color: #1e2638;
-  --border-accent: #2a364f;
+  --bg-main: #07090e;
+  --bg-card: #0d121e;
+  --bg-card-hover: #121828;
+  --border-color: #172033;
+  --border-accent: #222e48;
   
   --color-primary: #00f2fe;
   --color-primary-glow: rgba(0, 242, 254, 0.25);
   --color-success: #00f59b;
-  --color-success-bg: rgba(0, 245, 155, 0.12);
   --color-danger: #ff4d6d;
-  --color-danger-bg: rgba(255, 77, 109, 0.12);
   --color-warning: #ffd166;
-  --color-warning-bg: rgba(255, 209, 102, 0.12);
   
   --text-main: #f0f4f8;
   --text-muted: #8899a6;
   --text-sub: #5c6b7d;
   
-  --font-heading: 'Outfit', sans-serif;
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -37,124 +33,44 @@ body {
   color: var(--text-main);
   font-family: var(--font-heading);
   min-height: 100vh;
-  min-height: -webkit-fill-available;
   overflow-x: hidden;
-  padding-bottom: env(safe-area-inset-bottom, 20px);
 }
 
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: var(--bg-main);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-accent);
+  background: var(--border-color);
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-primary);
-}
 
-.mono {
-  font-family: var(--font-mono);
-}
-
-/* Glow & Neon Effects */
-.glow-cyan {
-  box-shadow: 0 0 15px var(--color-primary-glow);
-}
-.glow-green {
-  box-shadow: 0 0 15px rgba(0, 245, 155, 0.3);
-}
-.glow-red {
-  box-shadow: 0 0 15px rgba(255, 77, 109, 0.3);
-}
-
-/* Glassmorphism Cards */
+/* Cards */
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 14px;
+  border-radius: 16px;
   transition: all 0.2s ease;
-}
-
-.card:hover {
-  border-color: var(--border-accent);
 }
 
 /* Header */
 .top-header {
-  background: rgba(17, 22, 34, 0.9);
+  background: rgba(10, 14, 22, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
-/* Mobile Bottom Navigation Bar */
-.bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(13, 17, 26, 0.94);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--border-color);
-  z-index: 90;
-  padding-bottom: max(env(safe-area-inset-bottom), 8px);
-}
-
-.bottom-nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  padding: 8px 4px;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.bottom-nav-item.active {
-  color: var(--color-primary);
-}
-
-.bottom-nav-item.active .nav-icon-container {
-  background: rgba(0, 242, 254, 0.15);
-  border-radius: 10px;
-}
-
-/* Price Flash Animations */
-@keyframes flashGreen {
-  0% { color: #00f59b; text-shadow: 0 0 10px rgba(0,245,155,0.8); }
-  100% { color: inherit; }
-}
-
-@keyframes flashRed {
-  0% { color: #ff4d6d; text-shadow: 0 0 10px rgba(255,77,109,0.8); }
-  100% { color: inherit; }
-}
-
-.price-flash-up {
-  animation: flashGreen 0.8s ease-out;
-}
-
-.price-flash-down {
-  animation: flashRed 0.8s ease-out;
-}
-
-/* Live Pulse Badge */
+/* Pulse animation */
 @keyframes pulseGlow {
   0% { transform: scale(0.95); opacity: 0.8; }
-  50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 6px var(--color-primary)); }
+  50% { transform: scale(1.2); opacity: 1; filter: drop-shadow(0 0 6px var(--color-success)); }
   100% { transform: scale(0.95); opacity: 0.8; }
 }
 
@@ -162,94 +78,26 @@ body {
   animation: pulseGlow 1.8s infinite ease-in-out;
 }
 
-/* AI Terminal Box */
-.terminal-box {
-  background: #080a0f;
-  border: 1px solid #1a2233;
-  border-radius: 10px;
-  font-family: var(--font-mono);
-  font-size: 0.80rem;
-  line-height: 1.5;
-}
-
-/* Custom Buttons */
+/* Buttons */
 .btn-primary {
-  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+  background: linear-gradient(135deg, #00f2fe 0%, #00f59b 100%);
   color: #050811;
-  font-weight: 700;
-  border-radius: 10px;
-  transition: all 0.25s ease;
+  font-weight: 800;
+  border-radius: 12px;
+  transition: all 0.2s ease;
   touch-action: manipulation;
 }
 .btn-primary:active {
   transform: scale(0.98);
 }
 .btn-primary:hover {
-  filter: brightness(1.15);
-  box-shadow: 0 4px 15px var(--color-primary-glow);
-}
-
-.btn-long {
-  background: linear-gradient(135deg, #00f59b 0%, #00b875 100%);
-  color: #050811;
-  font-weight: 700;
-  transition: all 0.2s ease;
-}
-.btn-long:hover {
   filter: brightness(1.1);
-  box-shadow: 0 4px 15px rgba(0, 245, 155, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 242, 254, 0.25);
 }
 
-.btn-short {
-  background: linear-gradient(135deg, #ff4d6d 0%, #d90429 100%);
-  color: #ffffff;
-  font-weight: 700;
-  transition: all 0.2s ease;
-}
-.btn-short:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 4px 15px rgba(255, 77, 109, 0.3);
-}
-
-/* Modal Backdrop */
+/* Modal */
 .modal-backdrop {
-  background: rgba(4, 7, 12, 0.88);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-/* Mobile Friendly Tab Sections */
-@media (max-width: 1023px) {
-  .desktop-only-flex {
-    display: none !important;
-  }
-  .mobile-tab-view {
-    display: none;
-  }
-  .mobile-tab-view.active {
-    display: flex;
-    flex-direction: column;
-  }
-  main {
-    padding-bottom: 80px !important;
-  }
-}
-
-@media (min-width: 1024px) {
-  .mobile-only {
-    display: none !important;
-  }
-  .mobile-tab-view {
-    display: flex !important;
-  }
-}
-
-/* Card Badge Animations */
-.animate-scale-in {
-  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
+  background: rgba(4, 7, 12, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
