@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>CryptoTrader AI</title>
+  <title>CryptoTrader AI | Criptos & Acciones</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
   <link rel="manifest" href="/manifest.json">
@@ -39,7 +39,7 @@
           <span class="w-1.5 h-1.5 rounded-full bg-[#00f59b] pulse-dot"></span>
           <span id="binanceWsStatus" class="text-[#00f59b]">Binance Live</span>
           <span>•</span>
-          <span class="text-[#00f2fe] font-bold">1x Dinero Propio</span>
+          <span class="text-[#00f2fe] font-bold">Cripto + Acciones</span>
         </div>
       </div>
     </div>
@@ -113,12 +113,16 @@
         <span>Escanear Oportunidad con DeepSeek</span>
       </button>
 
-      <!-- Trending & New Coins Radar Bar -->
-      <div class="space-y-1.5 pt-1">
+      <!-- Market Radar Bar with Switcher (Crypto vs Stocks) -->
+      <div class="space-y-2 pt-1">
         <div class="flex items-center justify-between px-1">
-          <div class="flex items-center gap-1.5">
-            <i data-lucide="flame" class="w-3.5 h-3.5 text-[#ffd166]"></i>
-            <span class="text-[11px] font-bold text-[#8899a6] uppercase tracking-wider">Radar de Oportunidades Binance</span>
+          <div class="flex items-center gap-1 bg-[#0a0e18] p-1 rounded-xl border border-[#172033]">
+            <button onclick="setMarketFilter('crypto')" id="btn-market-crypto" class="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/40 transition-all">
+              🔥 Criptos
+            </button>
+            <button onclick="setMarketFilter('stocks')" id="btn-market-stocks" class="px-2.5 py-1 rounded-lg text-[10px] font-extrabold text-[#8899a6] hover:text-white transition-all">
+              🏛️ Acciones (TSLA, NVDA, etc.)
+            </button>
           </div>
           <span class="text-[9px] text-[#6b7c93] font-mono">Toca para analizar</span>
         </div>
@@ -262,8 +266,10 @@
         <div>
           <label class="text-[11px] font-bold text-[#00f59b] block mb-1">Modo de Exploración de Mercado</label>
           <select id="selectScanMode" class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-2.5 py-2 text-xs text-white font-mono focus:border-[#00f59b] focus:outline-none">
-            <option value="top_trending" selected>🔥 Radar IA (Detecta Nuevas & Top Trending en Binance)</option>
-            <option value="popular">🏆 Principales (BTC, ETH, SOL, BNB, DOGE, XRP, PEPE)</option>
+            <option value="all" selected>🌐 Todo el Mercado (Cripto + Acciones TSLA, NVDA)</option>
+            <option value="top_trending">🔥 Solo Criptos en Tendencia en Binance</option>
+            <option value="stocks">🏛️ Solo Acciones de Bolsa (Tesla, Nvidia, Apple, SPY)</option>
+            <option value="popular">🏆 Solo Principales Criptos (BTC, ETH, SOL, etc.)</option>
           </select>
         </div>
 

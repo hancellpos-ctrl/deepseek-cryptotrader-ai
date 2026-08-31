@@ -1,4 +1,4 @@
-﻿const axios = require('axios');
+const axios = require('axios');
 const WebSocket = require('ws');
 const crypto = require('crypto');
 const { getConfig } = require('./config');
@@ -75,6 +75,29 @@ async function fetchTopTrendingPairs(limit = 12, minQuoteVolume = 20000000) {
     return usdtPairs;
   } catch (error) {
     console.error('Error fetching trending pairs:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch TradFi Stock Perpetuals on Binance (TSLA, NVDA, AAPL, SPY, QQQ, etc.)
+ */
+async function fetchTradFiStocks() {
+  const stockSymbols = ['TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT', 'AMZNUSDT', 'METAUSDT', 'MSFTUSDT', 'SPYUSDT', 'QQQUSDT', 'COINUSDT', 'MSTRUSDT', 'AMDUSDT'];
+  try {
+    const url = `${BINANCE_FUTURES_REST}/fapi/v1/ticker/24hr`;
+    const response = await axios.get(url, { timeout: 8000 });
+    const stockTickers = response.data
+      .filter(item => stockSymbols.includes(item.symbol))
+      .map(item => ({
+        symbol: item.symbol,
+        lastPrice: parseFloat(item.lastPrice),
+        priceChangePercent: parseFloat(item.priceChangePercent),
+        quoteVolume: parseFloat(item.quoteVolume)
+      }));
+    return stockTickers;
+  } catch (error) {
+    console.error('Error fetching TradFi stocks:', error.message);
     return [];
   }
 }
@@ -319,6 +342,7 @@ module.exports = {
   fetchKlines,
   fetch24hrTicker,
   fetchTopTrendingPairs,
+  fetchTradFiStocks,
   fetchAllPrices,
   fetchCurrentPrice,
   getCachedPrice,

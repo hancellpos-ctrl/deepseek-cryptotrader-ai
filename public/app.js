@@ -5,6 +5,8 @@
 const state = {
   prices: {},
   trendingCoins: [],
+  stockAssets: [],
+  activeMarketFilter: 'crypto', // 'crypto' or 'stocks'
   wallet: {
     balance: 1000.0,
     equity: 1000.0,
@@ -38,8 +40,8 @@ if ('serviceWorker' in navigator) {
 document.addEventListener('DOMContentLoaded', () => {
   initWebSocket();
   fetchInitialData();
-  fetchTrendingMarket();
-  setInterval(fetchTrendingMarket, 30000);
+  fetchMarketData();
+  setInterval(fetchMarketData, 25000);
   bindUIEvents();
 });
 
@@ -72,6 +74,26 @@ function navigateToTab(tabId) {
 
   if (window.lucide) lucide.createIcons();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ----------------------------------------------------
+// MARKET FILTER SWITCHER (CRYPTO VS STOCKS)
+// ----------------------------------------------------
+function setMarketFilter(type) {
+  state.activeMarketFilter = type;
+
+  const btnCrypto = document.getElementById('btn-market-crypto');
+  const btnStocks = document.getElementById('btn-market-stocks');
+
+  if (type === 'crypto') {
+    if (btnCrypto) btnCrypto.className = 'px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/40 transition-all';
+    if (btnStocks) btnStocks.className = 'px-2.5 py-1 rounded-lg text-[10px] font-extrabold text-[#8899a6] hover:text-white transition-all';
+  } else {
+    if (btnStocks) btnStocks.className = 'px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/40 transition-all';
+    if (btnCrypto) btnCrypto.className = 'px-2.5 py-1 rounded-lg text-[10px] font-extrabold text-[#8899a6] hover:text-white transition-all';
+  }
+
+  fetchMarketData();
 }
 
 // ----------------------------------------------------
@@ -199,13 +221,22 @@ async function fetchInitialData() {
   }
 }
 
-async function fetchTrendingMarket() {
+async function fetchMarketData() {
   try {
-    const res = await fetch('/api/market/trending?limit=10');
-    const data = await res.json();
-    if (data.success && data.trending) {
-      state.trendingCoins = data.trending;
-      renderTrendingPills();
+    if (state.activeMarketFilter === 'crypto') {
+      const res = await fetch('/api/market/trending?limit=10');
+      const data = await res.json();
+      if (data.success && data.trending) {
+        state.trendingCoins = data.trending;
+        renderMarketPills();
+      }
+    } else {
+      const res = await fetch('/api/market/stocks');
+      const data = await res.json();
+      if (data.success && data.stocks) {
+        state.stockAssets = data.stocks;
+        renderMarketPills();
+      }
     }
   } catch (e) {}
 }
@@ -298,7 +329,7 @@ async function resetPaperWallet() {
 // ----------------------------------------------------
 function renderAll() {
   renderWallet();
-  renderTrendingPills();
+  renderMarketPills();
   renderPositions();
   renderAiAlertCard();
   renderLogs();
@@ -307,23 +338,28 @@ function renderAll() {
   if (window.lucide) lucide.createIcons();
 }
 
-function renderTrendingPills() {
+function renderMarketPills() {
   const container = document.getElementById('trendingPillsContainer');
   if (!container) return;
 
-  if (!state.trendingCoins || state.trendingCoins.length === 0) {
-    container.innerHTML = `<span class="text-[10px] text-[#6b7c93]">Cargando radar de Binance...</span>`;
+  const items = state.activeMarketFilter === 'crypto' ? state.trendingCoins : state.stockAssets;
+
+  if (!items || items.length === 0) {
+    container.innerHTML = `<span class="text-[10px] text-[#6b7c93]">Cargando mercado de Binance...</span>`;
     return;
   }
 
-  container.innerHTML = state.trendingCoins.map(c => {
+  container.innerHTML = items.map(c => {
     const isUp = c.priceChangePercent >= 0;
     const sign = isUp ? '+' : '';
     const cleanSym = c.symbol.replace('USDT', '');
 
     return `
       <button onclick="triggerAiScan('${c.symbol}')" class="px-2.5 py-1 rounded-xl bg-[#0d121e] hover:bg-[#151d30] border border-[#1a243a] flex items-center gap-1.5 shrink-0 transition-all text-left">
-        <span class="text-xs font-extrabold text-white">${cleanSym}</span>
+        <div>
+          <span class="text-xs font-extrabold text-white block">${cleanSym}</span>
+          <span class="text-[9px] text-[#6b7c93] font-mono">$${formatPrice(c.lastPrice)}</span>
+        </div>
         <span class="font-mono text-[10px] font-bold ${isUp ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
           ${sign}${c.priceChangePercent.toFixed(1)}%
         </span>
@@ -609,7 +645,7 @@ function renderConfig() {
   if (selectModel) selectModel.value = cfg.deepseekModel || 'deepseek-chat';
 
   const selectScan = document.getElementById('selectScanMode');
-  if (selectScan) selectScan.value = cfg.scanMode || 'top_trending';
+  if (selectScan) selectScan.value = cfg.scanMode || 'all';
 
   const selectLev = document.getElementById('selectLeverage');
   if (selectLev) selectLev.value = String(cfg.defaultLeverage || 1);
@@ -633,7 +669,7 @@ function renderConfig() {
 function updateConnectionStatus(connected) {
   const statusEl = document.getElementById('binanceWsStatus');
   if (!statusEl) return;
-  statusEl.innerText = connected ? 'Mercado Live' : 'Reconectando...';
+  statusEl.innerText = connected ? 'Binance Live' : 'Reconectando...';
   statusEl.className = connected ? 'text-[#00f59b]' : 'text-[#ff4d6d]';
 }
 
@@ -663,7 +699,7 @@ async function saveSettings() {
     const data = await res.json();
     if (data.success) {
       state.config = data.config;
-      showToast('Configuración guardada (Radar IA Activo)', 'success');
+      showToast('Configuración guardada con éxito', 'success');
     }
   } catch (err) {
     showToast('Error: ' + err.message, 'danger');
@@ -698,9 +734,9 @@ function formatPrice(val) {
   if (val === null || val === undefined || isNaN(val)) return '0.00';
   const num = parseFloat(val);
   if (num >= 1000) return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (num >= 1) return num.toFixed(3);
-  if (num >= 0.01) return num.toFixed(5);
-  return num.toFixed(7);
+  if (num >= 1) return num.toFixed(2);
+  if (num >= 0.01) return num.toFixed(4);
+  return num.toFixed(6);
 }
 
 function showToast(message, type = 'info') {

@@ -78,18 +78,31 @@ class AutoTrader {
     const config = getConfig();
     let symbolsToScan = specificSymbol ? [specificSymbol] : config.tradingPairs;
 
-    // Dynamic Discovery: If scanMode is 'top_trending', fetch top momentum/trending pairs from Binance
-    if (!specificSymbol && config.scanMode === 'top_trending') {
-      try {
-        const trendingPairs = await fetchTopTrendingPairs(8);
-        if (trendingPairs && trendingPairs.length > 0) {
-          const trendingSymbols = trendingPairs.map(t => t.symbol);
-          // Combine with active pairs ensuring no duplicates
-          symbolsToScan = Array.from(new Set([...trendingSymbols, 'BTCUSDT', 'SOLUSDT']));
-          this.log(`🔥 [RADAR IA] Detectadas ${trendingSymbols.length} criptos en tendencia en Binance: ${trendingSymbols.join(', ')}`, 'info');
+    // Dynamic Discovery based on scanMode
+    if (!specificSymbol) {
+      if (config.scanMode === 'stocks') {
+        symbolsToScan = ['TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT', 'AMZNUSDT', 'METAUSDT', 'MSFTUSDT', 'SPYUSDT', 'QQQUSDT'];
+        this.log(`🏛️ [BOLSA IA] Escaneando acciones TradFi en Binance: TSLA, NVDA, AAPL, SPY, QQQ...`, 'info');
+      } else if (config.scanMode === 'all') {
+        try {
+          const trendingPairs = await fetchTopTrendingPairs(4);
+          const trendingSymbols = trendingPairs ? trendingPairs.map(t => t.symbol) : [];
+          symbolsToScan = Array.from(new Set([...trendingSymbols, 'BTCUSDT', 'SOLUSDT', 'TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT', 'SPYUSDT']));
+          this.log(`🌐 [RADAR GLOBAL] Escaneando Criptos (${trendingSymbols.join(', ') || 'BTC, SOL'}) y Acciones (TSLA, NVDA, AAPL, SPY)...`, 'info');
+        } catch (err) {
+          symbolsToScan = ['BTCUSDT', 'SOLUSDT', 'TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT'];
         }
-      } catch (err) {
-        console.warn('Error fetching dynamic trending pairs, fallback to defaults:', err.message);
+      } else if (config.scanMode === 'top_trending') {
+        try {
+          const trendingPairs = await fetchTopTrendingPairs(8);
+          if (trendingPairs && trendingPairs.length > 0) {
+            const trendingSymbols = trendingPairs.map(t => t.symbol);
+            symbolsToScan = Array.from(new Set([...trendingSymbols, 'BTCUSDT', 'SOLUSDT']));
+            this.log(`🔥 [RADAR IA] Detectadas ${trendingSymbols.length} criptos en tendencia: ${trendingSymbols.join(', ')}`, 'info');
+          }
+        } catch (err) {
+          console.warn('Error fetching dynamic trending pairs, fallback to defaults:', err.message);
+        }
       }
     }
 

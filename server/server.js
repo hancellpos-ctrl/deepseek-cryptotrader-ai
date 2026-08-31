@@ -5,7 +5,7 @@ const path = require('path');
 const cors = require('cors');
 
 const { getConfig, getSafeConfig, updateConfig } = require('./config');
-const { fetchKlines, fetch24hrTicker, fetchAllPrices, initAllPricesStream, connectBinanceStream, fetchCurrentPrice, fetchTopTrendingPairs } = require('./binanceService');
+const { fetchKlines, fetch24hrTicker, fetchAllPrices, initAllPricesStream, connectBinanceStream, fetchCurrentPrice, fetchTopTrendingPairs, fetchTradFiStocks } = require('./binanceService');
 const { analyzeCandles } = require('./indicators');
 const paperEngine = require('./paperTradingEngine');
 const autoTrader = require('./autoTrader');
@@ -147,6 +147,18 @@ app.get('/api/market/trending', async (req, res) => {
     const limit = parseInt(req.query.limit || '12', 10);
     const trending = await fetchTopTrendingPairs(limit);
     res.json({ success: true, trending });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Get TradFi Stocks (TSLA, NVDA, AAPL, SPY, QQQ, etc.) from Binance
+ */
+app.get('/api/market/stocks', async (req, res) => {
+  try {
+    const stocks = await fetchTradFiStocks();
+    res.json({ success: true, stocks });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
