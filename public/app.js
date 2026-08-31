@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CryptoTrader AI - 4 Module Mobile Web App & PWA
  */
 
@@ -7,6 +7,8 @@ const state = {
   trendingCoins: [],
   stockAssets: [],
   activeMarketFilter: 'crypto', // 'crypto' or 'stocks'
+  positionsSort: 'recent', // 'recent', 'pnl_desc', 'pnl_asc', 'crypto', 'stocks'
+  historyFilter: 'all', // 'all', 'wins', 'losses', 'highest_pnl'
   wallet: {
     balance: 1000.0,
     equity: 1000.0,
@@ -94,6 +96,33 @@ function setMarketFilter(type) {
   }
 
   fetchMarketData();
+}
+
+// ----------------------------------------------------
+// SORTING & FILTERING CONTROLS
+// ----------------------------------------------------
+function setPositionsSort(mode) {
+  state.positionsSort = mode;
+  ['recent', 'pnl_desc', 'pnl_asc', 'crypto', 'stocks'].forEach(m => {
+    const el = document.getElementById(`sort-pos-${m}`);
+    if (el) {
+      if (m === mode) el.classList.add('active');
+      else el.classList.remove('active');
+    }
+  });
+  renderPositions();
+}
+
+function setHistoryFilter(filter) {
+  state.historyFilter = filter;
+  ['all', 'wins', 'losses', 'highest_pnl'].forEach(f => {
+    const el = document.getElementById(`filter-hist-${f}`);
+    if (el) {
+      if (f === filter) el.classList.add('active');
+      else el.classList.remove('active');
+    }
+  });
+  renderHistory();
 }
 
 // ----------------------------------------------------
@@ -431,7 +460,28 @@ function renderPositions() {
   const countBadge = document.getElementById('openPositionsBadge');
   if (!container) return;
 
-  const positions = state.wallet.positions || [];
+  const stockSymbols = ['TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT', 'SPYUSDT', 'QQQUSDT', 'AMZNUSDT', 'METAUSDT', 'MSFTUSDT', 'COINUSDT', 'MSTRUSDT', 'AMDUSDT'];
+  let positions = (state.wallet.positions || []).slice();
+
+  // 1. Filter by category if selected
+  if (state.positionsSort === 'crypto') {
+    positions = positions.filter(p => !stockSymbols.includes(p.symbol));
+  } else if (state.positionsSort === 'stocks') {
+    positions = positions.filter(p => stockSymbols.includes(p.symbol));
+  }
+
+  // 2. Sort
+  if (state.positionsSort === 'pnl_desc') {
+    // Más ganadoras alante
+    positions.sort((a, b) => (b.unrealizedPnL || 0) - (a.unrealizedPnL || 0));
+  } else if (state.positionsSort === 'pnl_asc') {
+    // Más perdedoras alante
+    positions.sort((a, b) => (a.unrealizedPnL || 0) - (b.unrealizedPnL || 0));
+  } else if (state.positionsSort === 'recent') {
+    // Más recientes alante
+    positions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  }
+
   if (countBadge) countBadge.innerText = `${positions.length} Activas`;
 
   if (positions.length === 0) {
@@ -590,12 +640,21 @@ function renderHistory() {
   const container = document.getElementById('tradeHistoryContainer');
   if (!container) return;
 
-  const history = state.wallet.tradeHistory || [];
+  let history = (state.wallet.tradeHistory || []).slice();
+
+  // 1. Filter
+  if (state.historyFilter === 'wins') {
+    history = history.filter(t => (t.realizedPnL || 0) > 0);
+  } else if (state.historyFilter === 'losses') {
+    history = history.filter(t => (t.realizedPnL || 0) < 0);
+  } else if (state.historyFilter === 'highest_pnl') {
+    history.sort((a, b) => (b.realizedPnL || 0) - (a.realizedPnL || 0));
+  }
 
   if (history.length === 0) {
     container.innerHTML = `
       <div class="bg-[#0b0f19] p-4 rounded-2xl border border-[#141b2b] text-center text-xs text-[#55657e]">
-        Aún no hay operaciones registradas en la base de datos.
+        No hay operaciones que coincidan con este filtro.
       </div>
     `;
     return;
@@ -657,7 +716,7 @@ function renderConfig() {
   if (inputRisk) inputRisk.value = cfg.riskPerTradePercent || 5;
 
   const inputMaxPos = document.getElementById('inputMaxPositions');
-  if (inputMaxPos) inputMaxPos.value = cfg.maxOpenPositions || 2;
+  if (inputMaxPos) inputMaxPos.value = cfg.maxOpenPositions || 6;
 
   const inputTgToken = document.getElementById('inputTelegramToken');
   if (inputTgToken) inputTgToken.value = cfg.telegramBotToken || '';
@@ -683,7 +742,7 @@ async function saveSettings() {
     defaultLeverage: parseInt(document.getElementById('selectLeverage').value, 10) || 1,
     globalProfitGoalUSDT: parseFloat(document.getElementById('inputTargetProfit').value) || 10.0,
     riskPerTradePercent: parseFloat(document.getElementById('inputRiskPercent').value) || 5,
-    maxOpenPositions: parseInt(document.getElementById('inputMaxPositions').value, 10) || 2,
+    maxOpenPositions: parseInt(document.getElementById('inputMaxPositions').value, 10) || 6,
     telegramToken: document.getElementById('inputTelegramToken').value,
     telegramChatId: document.getElementById('inputTelegramChatId').value,
     telegramEnabled: document.getElementById('checkboxTelegramEnabled').checked

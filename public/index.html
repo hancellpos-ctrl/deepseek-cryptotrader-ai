@@ -132,7 +132,7 @@
       </div>
 
       <!-- Active Open Trades Section -->
-      <div class="space-y-2.5 pt-1">
+      <div class="space-y-2 pt-1">
         <div class="flex items-center justify-between px-1">
           <div class="flex items-center gap-1.5">
             <i data-lucide="activity" class="w-4 h-4 text-[#00f2fe]"></i>
@@ -141,6 +141,25 @@
           <span id="openPositionsBadge" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#00f2fe]/15 text-[#00f2fe] border border-[#00f2fe]/30">
             0 Activas
           </span>
+        </div>
+
+        <!-- Sort Filter Pills for Active Positions -->
+        <div class="flex items-center gap-1.5 overflow-x-auto py-1 px-0.5">
+          <button onclick="setPositionsSort('recent')" id="sort-pos-recent" class="sort-pill active">
+            🕒 Recientes
+          </button>
+          <button onclick="setPositionsSort('pnl_desc')" id="sort-pos-pnl_desc" class="sort-pill">
+            🟢 + Ganancia
+          </button>
+          <button onclick="setPositionsSort('pnl_asc')" id="sort-pos-pnl_asc" class="sort-pill">
+            🔴 - Pérdida
+          </button>
+          <button onclick="setPositionsSort('crypto')" id="sort-pos-crypto" class="sort-pill">
+            🪙 Criptos
+          </button>
+          <button onclick="setPositionsSort('stocks')" id="sort-pos-stocks" class="sort-pill">
+            🏛️ Acciones
+          </button>
         </div>
 
         <!-- Live Positions Cards Container -->
@@ -225,6 +244,22 @@
           <span class="text-[10px] text-[#6b7c93] block">Ganancia Neta</span>
           <span id="statHistoryTotalProfit" class="text-xs font-bold text-[#00f59b]">+$0.00</span>
         </div>
+      </div>
+
+      <!-- History Filter Pills -->
+      <div class="flex items-center gap-1.5 overflow-x-auto py-1 px-0.5">
+        <button onclick="setHistoryFilter('all')" id="filter-hist-all" class="sort-pill active">
+          Todos
+        </button>
+        <button onclick="setHistoryFilter('wins')" id="filter-hist-wins" class="sort-pill">
+          🟢 Ganadoras
+        </button>
+        <button onclick="setHistoryFilter('losses')" id="filter-hist-losses" class="sort-pill">
+          🔴 Pérdidas
+        </button>
+        <button onclick="setHistoryFilter('highest_pnl')" id="filter-hist-highest_pnl" class="sort-pill">
+          💰 Mayor PnL
+        </button>
       </div>
 
       <!-- Container of Closed Trades Cards -->

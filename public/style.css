@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
   --bg-main: #07090e;
@@ -97,6 +97,33 @@ body {
 .btn-primary:hover {
   filter: brightness(1.1);
   box-shadow: 0 4px 14px rgba(0, 242, 254, 0.25);
+}
+
+/* Sort & Filter Pills */
+.sort-pill {
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  background: #0d121e;
+  color: #8899a6;
+  border: 1px solid #1a2336;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  touch-action: manipulation;
+}
+.sort-pill:active {
+  transform: scale(0.95);
+}
+.sort-pill.active {
+  background: rgba(0, 242, 254, 0.15);
+  color: #00f2fe;
+  border-color: rgba(0, 242, 254, 0.4);
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.15);
 }
 
 /* Mobile Bottom Navigation Bar */
