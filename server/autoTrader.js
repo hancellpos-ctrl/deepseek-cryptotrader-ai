@@ -162,8 +162,9 @@ class AutoTrader {
       return;
     }
 
-    const maxPositions = config.maxOpenPositions || 2;
+    const maxPositions = config.maxOpenPositions || 6;
     if (openPositions.length >= maxPositions) {
+      this.log(`⚠️ Límite de ${maxPositions} operaciones simultáneas alcanzado. Esperando cierres para nuevas entradas.`, 'warning');
       return;
     }
 

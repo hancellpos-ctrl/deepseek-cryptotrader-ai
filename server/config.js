@@ -17,8 +17,8 @@ const defaultConfig = {
   autoPilot: true,
   autoPilotIntervalMinutes: 1,
   globalProfitGoalUSDT: 10.0, // Meta TOTAL acumulada: +$10.00 USD
-  maxOpenPositions: 2, // Máximo 2 operaciones simultáneas
-  scanMode: 'top_trending', // 'top_trending' (Radar de Nuevas & Volátiles en Binance) | 'popular' (BTC, ETH, etc.)
+  maxOpenPositions: 6, // Máximo 6 operaciones simultáneas (configurable en Ajustes)
+  scanMode: 'all', // 'all' (Criptos + Acciones TradFi) | 'top_trending' | 'popular'
   tradingPairs: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT', 'XRPUSDT', '1000PEPEUSDT'],
   activePair: 'BTCUSDT',
   timeframe: '15m',
