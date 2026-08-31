@@ -118,8 +118,21 @@ function startBinanceStreamForSymbol(symbol, interval = '15m') {
 app.get('/api/status', async (req, res) => {
   try {
     const config = getSafeConfig();
+    const openSymbols = paperEngine.positions.map(p => p.symbol);
+    const allTracked = Array.from(new Set([
+      ...config.tradingPairs,
+      ...openSymbols,
+      'MAGMAUSDT', 'SKRUSDT', 'HEMIUSDT',
+      'TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT', 'SPYUSDT', 'QQQUSDT', 'AMZNUSDT', 'METAUSDT', 'MSFTUSDT', 'COINUSDT', 'MSTRUSDT'
+    ]));
+    const prices = await fetchAllPrices(allTracked);
+
+    // Update positions with fresh prices
+    for (const [sym, price] of Object.entries(prices)) {
+      paperEngine.updateMarketPrice(sym, price);
+    }
+
     const wallet = paperEngine.getAccountSummary();
-    const prices = await fetchAllPrices(config.tradingPairs);
     const ticker = await fetch24hrTicker(currentActiveSymbol);
 
     res.json({
@@ -389,11 +402,19 @@ server.listen(PORT, () => {
   // 2. Start Binance public WebSocket stream for default pair candles
   startBinanceStreamForSymbol(currentActiveSymbol, currentActiveInterval);
 
-  // 3. Fallback high-speed poller (every 1.2s) to guarantee 100% price updates & instant TP/SL trigger
+  // 3. Fallback high-speed poller (every 1s) to guarantee 100% price updates & instant TP/SL trigger
   setInterval(async () => {
     try {
       const config = getConfig();
-      const prices = await fetchAllPrices(config.tradingPairs);
+      const openSymbols = paperEngine.positions.map(p => p.symbol);
+      const allTracked = Array.from(new Set([
+        ...config.tradingPairs,
+        ...openSymbols,
+        'MAGMAUSDT', 'SKRUSDT', 'HEMIUSDT',
+        'TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT', 'SPYUSDT', 'QQQUSDT', 'AMZNUSDT', 'METAUSDT', 'MSFTUSDT', 'COINUSDT', 'MSTRUSDT'
+      ]));
+
+      const prices = await fetchAllPrices(allTracked);
       let pnlChanged = false;
 
       for (const [sym, price] of Object.entries(prices)) {
@@ -408,7 +429,7 @@ server.listen(PORT, () => {
         broadcast('WALLET_UPDATE', paperEngine.getAccountSummary());
       }
     } catch (e) {}
-  }, 1200);
+  }, 1000);
 
   // 4. Start auto-trader if configured
   const cfg = getConfig();

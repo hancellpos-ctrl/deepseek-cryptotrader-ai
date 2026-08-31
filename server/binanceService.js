@@ -103,21 +103,21 @@ async function fetchTradFiStocks() {
 }
 
 /**
- * Fetch current prices for multiple symbols
+ * Fetch current prices for multiple symbols (or all if symbols is null)
  */
-async function fetchAllPrices(symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT', 'XRPUSDT', '1000PEPEUSDT']) {
+async function fetchAllPrices(symbols = null) {
   try {
     const url = `${BINANCE_FUTURES_REST}/fapi/v1/ticker/price`;
     const response = await axios.get(url, { timeout: 5000 });
     const priceMap = {};
     response.data.forEach(item => {
-      if (symbols.includes(item.symbol)) {
-        const p = parseFloat(item.price);
+      const p = parseFloat(item.price);
+      currentPrices[item.symbol] = p;
+      if (!symbols || symbols.includes(item.symbol)) {
         priceMap[item.symbol] = p;
-        currentPrices[item.symbol] = p;
       }
     });
-    return priceMap;
+    return symbols ? priceMap : currentPrices;
   } catch (error) {
     console.error('Error fetching all prices:', error.message);
     return currentPrices;
