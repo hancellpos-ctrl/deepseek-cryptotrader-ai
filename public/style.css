@@ -1,0 +1,196 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --bg-main: #0a0d14;
+  --bg-card: #111622;
+  --bg-card-hover: #161d2d;
+  --bg-panel: #0d111a;
+  --border-color: #1e2638;
+  --border-accent: #2a364f;
+  
+  --color-primary: #00f2fe;
+  --color-primary-glow: rgba(0, 242, 254, 0.25);
+  --color-success: #00f59b;
+  --color-success-bg: rgba(0, 245, 155, 0.12);
+  --color-danger: #ff4d6d;
+  --color-danger-bg: rgba(255, 77, 109, 0.12);
+  --color-warning: #ffd166;
+  --color-warning-bg: rgba(255, 209, 102, 0.12);
+  
+  --text-main: #f0f4f8;
+  --text-muted: #8899a6;
+  --text-sub: #5c6b7d;
+  
+  --font-heading: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-family: var(--font-heading);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-accent);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* Glow & Neon Effects */
+.glow-cyan {
+  box-shadow: 0 0 15px var(--color-primary-glow);
+}
+.glow-green {
+  box-shadow: 0 0 15px rgba(0, 245, 155, 0.3);
+}
+.glow-red {
+  box-shadow: 0 0 15px rgba(255, 77, 109, 0.3);
+}
+
+/* Glassmorphism Cards */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--border-accent);
+}
+
+/* Header */
+.top-header {
+  background: rgba(17, 22, 34, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+/* Price Flash Animations */
+@keyframes flashGreen {
+  0% { color: #00f59b; text-shadow: 0 0 10px rgba(0,245,155,0.8); }
+  100% { color: inherit; }
+}
+
+@keyframes flashRed {
+  0% { color: #ff4d6d; text-shadow: 0 0 10px rgba(255,77,109,0.8); }
+  100% { color: inherit; }
+}
+
+.price-flash-up {
+  animation: flashGreen 0.8s ease-out;
+}
+
+.price-flash-down {
+  animation: flashRed 0.8s ease-out;
+}
+
+/* Live Pulse Badge */
+@keyframes pulseGlow {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 6px var(--color-primary)); }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.pulse-dot {
+  animation: pulseGlow 1.8s infinite ease-in-out;
+}
+
+/* AI Terminal Box */
+.terminal-box {
+  background: #080a0f;
+  border: 1px solid #1a2233;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+/* Custom Buttons */
+.btn-primary {
+  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+  color: #050811;
+  font-weight: 700;
+  border-radius: 8px;
+  transition: all 0.25s ease;
+}
+.btn-primary:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px var(--color-primary-glow);
+}
+
+.btn-long {
+  background: linear-gradient(135deg, #00f59b 0%, #00b875 100%);
+  color: #050811;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+.btn-long:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 15px rgba(0, 245, 155, 0.3);
+}
+
+.btn-short {
+  background: linear-gradient(135deg, #ff4d6d 0%, #d90429 100%);
+  color: #ffffff;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+.btn-short:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 15px rgba(255, 77, 109, 0.3);
+}
+
+/* Modal Backdrop */
+.modal-backdrop {
+  background: rgba(4, 7, 12, 0.85);
+  backdrop-filter: blur(8px);
+}
+
+/* Toggle Switch */
+.toggle-checkbox:checked {
+  right: 0;
+  border-color: #00f2fe;
+}
+.toggle-checkbox:checked + .toggle-label {
+  background-color: #00f2fe;
+}
+
+/* Gauge progress */
+.confidence-meter {
+  height: 8px;
+  background: #1a2233;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.confidence-fill {
+  height: 100%;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
