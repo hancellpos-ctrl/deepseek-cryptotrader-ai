@@ -200,3 +200,113 @@ body {
   font-size: 0.78rem;
   line-height: 1.5;
 }
+
+/* ============================================================== */
+/* ☀️ LIGHT MODE (MODO CLARO) STYLES & OVERRIDES */
+/* ============================================================== */
+html.light, body.light-theme {
+  --bg-main: #f3f6fb;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --bg-panel: #ffffff;
+  --border-color: #e2e8f0;
+  --border-accent: #cbd5e1;
+  
+  --color-primary: #0284c7;
+  --color-primary-glow: rgba(2, 132, 199, 0.2);
+  --color-success: #16a34a;
+  --color-danger: #dc2626;
+  --color-warning: #d97706;
+  
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-sub: #64748b;
+}
+
+html.light body {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html.light .top-header {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+html.light .bottom-nav {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-top: 1px solid #e2e8f0 !important;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
+}
+
+html.light .card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light .bg-\[\#07090e\],
+html.light .bg-\[\#0a0d14\],
+html.light .bg-\[\#0d121e\],
+html.light .bg-\[\#0a0e18\],
+html.light .bg-\[\#090d16\],
+html.light .bg-\[\#0f1523\],
+html.light .bg-\[\#121828\] {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-gradient-to-b.from-\[\#0f1523\].to-\[\#0a0e18\] {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+}
+
+html.light .border-\[\#172033\],
+html.light .border-\[\#1c263c\],
+html.light .border-\[\#141b2b\],
+html.light .border-\[\#222e48\],
+html.light .border-\[\#1e293b\] {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .text-white {
+  color: #0f172a !important;
+}
+
+html.light .text-\[\#f0f4f8\],
+html.light .text-\[\#e2e8f0\] {
+  color: #1e293b !important;
+}
+
+html.light .text-\[\#8899a6\],
+html.light .text-\[\#6b7c93\],
+html.light .text-\[\#5c6b7d\] {
+  color: #475569 !important;
+}
+
+html.light input,
+html.light select,
+html.light textarea {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light input::placeholder {
+  color: #94a3b8 !important;
+}
+
+html.light .terminal-box {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+html.light .badge-pill {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+html.light .badge-pill.active {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}

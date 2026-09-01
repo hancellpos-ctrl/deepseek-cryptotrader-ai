@@ -39,7 +39,51 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// ----------------------------------------------------
+// THEME MANAGEMENT (CLARO / OSCURO)
+// ----------------------------------------------------
+function initTheme() {
+  const savedTheme = localStorage.getItem('wp_theme') || 'dark';
+  applyTheme(savedTheme);
+}
+
+function applyTheme(theme) {
+  const html = document.documentElement;
+  const body = document.body;
+  const sunIcon = document.getElementById('themeIconSun');
+  const moonIcon = document.getElementById('themeIconMoon');
+  const selectTheme = document.getElementById('selectThemeMode');
+
+  if (theme === 'light') {
+    html.classList.remove('dark');
+    html.classList.add('light');
+    body.classList.add('light-theme');
+    if (sunIcon) sunIcon.classList.add('hidden');
+    if (moonIcon) moonIcon.classList.remove('hidden');
+  } else {
+    html.classList.remove('light');
+    html.classList.add('dark');
+    body.classList.remove('light-theme');
+    if (sunIcon) sunIcon.classList.remove('hidden');
+    if (moonIcon) moonIcon.classList.add('hidden');
+  }
+
+  localStorage.setItem('wp_theme', theme);
+  if (selectTheme) selectTheme.value = theme;
+
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  applyTheme(newTheme);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   initWebSocket();
   fetchInitialData();
   fetchMarketData();

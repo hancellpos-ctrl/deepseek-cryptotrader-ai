@@ -44,10 +44,18 @@
       </div>
     </div>
 
-    <!-- Quick Live Status Badge -->
-    <div class="flex items-center gap-2 bg-[#0d121e] px-2.5 py-1 rounded-xl border border-[#172033]">
-      <span class="text-[9px] text-[#8899a6] block uppercase font-bold">Ganancia</span>
-      <span id="statTotalProfitHeader" class="font-mono font-extrabold text-xs text-[#00f59b]">+$0.00</span>
+    <div class="flex items-center gap-2">
+      <!-- Theme Switch Button (Dark / Light) -->
+      <button id="themeToggleBtn" onclick="toggleTheme()" type="button" class="w-8 h-8 rounded-xl bg-[#0d121e] border border-[#172033] flex items-center justify-center text-[#8899a6] hover:text-[#00f2fe] transition-all" title="Cambiar a Modo Claro / Oscuro">
+        <i data-lucide="sun" id="themeIconSun" class="w-4 h-4 text-amber-400"></i>
+        <i data-lucide="moon" id="themeIconMoon" class="w-4 h-4 text-slate-400 hidden"></i>
+      </button>
+
+      <!-- Quick Live Status Badge -->
+      <div class="flex items-center gap-2 bg-[#0d121e] px-2.5 py-1 rounded-xl border border-[#172033]">
+        <span class="text-[9px] text-[#8899a6] block uppercase font-bold">Ganancia</span>
+        <span id="statTotalProfitHeader" class="font-mono font-extrabold text-xs text-[#00f59b]">+$0.00</span>
+      </div>
     </div>
   </header>
 
@@ -331,6 +339,21 @@
             <label class="text-[10px] text-[#8899a6] block mb-1 font-semibold">Meta Total ($)</label>
             <input type="number" id="inputTargetProfit" value="10.0" min="1" step="1" class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-2.5 py-1.5 text-xs text-white font-mono">
           </div>
+        </div>
+
+        <!-- Theme Mode Selector (Claro / Oscuro) -->
+        <div class="pt-2 border-t border-[#172033] flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="palette" class="w-4 h-4 text-[#ffd166]"></i>
+            <div>
+              <span class="text-[11px] font-bold text-white block">Tema de Interfaz</span>
+              <span class="text-[10px] text-[#8899a6]">Modo Claro (Día) o Modo Oscuro (Noche)</span>
+            </div>
+          </div>
+          <select id="selectThemeMode" onchange="applyTheme(this.value)" class="bg-[#07090e] border border-[#172033] rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:border-[#ffd166] focus:outline-none">
+            <option value="dark">🌙 Oscuro</option>
+            <option value="light">☀️ Claro</option>
+          </select>
         </div>
 
         <!-- Sound Alerts (Web Audio API) -->
