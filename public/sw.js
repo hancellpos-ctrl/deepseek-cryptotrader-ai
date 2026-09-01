@@ -1,4 +1,4 @@
-const CACHE_NAME = 'deepseek-cryptotrader-v3';
+const CACHE_NAME = 'deepseek-cryptotrader-v4';
 const ASSETS = [
   '/',
   '/index.html',

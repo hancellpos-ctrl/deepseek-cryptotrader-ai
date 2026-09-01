@@ -33,5 +33,7 @@
   "paperInitialBalance": 1000,
   "soundAlerts": true,
   "telegramToken": "",
-  "targetProfitUSDT": 10
+  "targetProfitUSDT": 10,
+  "securityPin": "1234",
+  "pinEnabled": true
 }

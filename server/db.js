@@ -130,6 +130,15 @@ function initDb() {
           )
         `);
 
+        // 5. Persistent App Settings (PIN, Risk, Goals)
+        await dbAsync.run(`
+          CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+
         resolve();
       } catch (err) {
         console.error('[DB] Error during initDb:', err);
@@ -141,10 +150,65 @@ function initDb() {
   return initPromise;
 }
 
+async function getSetting(key, defaultValue = null) {
+  try {
+    await initDb();
+    const row = await dbAsync.get('SELECT value FROM app_settings WHERE key = ?', [key]);
+    if (row && row.value !== undefined) {
+      try {
+        return JSON.parse(row.value);
+      } catch (e) {
+        return row.value;
+      }
+    }
+  } catch (err) {
+    console.error(`[DB] Failed to get setting ${key}:`, err.message);
+  }
+  return defaultValue;
+}
+
+async function setSetting(key, value) {
+  try {
+    await initDb();
+    const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value);
+    await dbAsync.run(
+      `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`,
+      [key, strVal]
+    );
+    return true;
+  } catch (err) {
+    console.error(`[DB] Failed to set setting ${key}:`, err.message);
+    return false;
+  }
+}
+
+async function getAllSettings() {
+  try {
+    await initDb();
+    const rows = await dbAsync.all('SELECT key, value FROM app_settings');
+    const result = {};
+    for (const r of rows) {
+      try {
+        result[r.key] = JSON.parse(r.value);
+      } catch (e) {
+        result[r.key] = r.value;
+      }
+    }
+    return result;
+  } catch (err) {
+    console.error('[DB] Failed to get all settings:', err.message);
+    return {};
+  }
+}
+
 initDb().catch(e => console.error('[DB] SQLite init error:', e));
 
 module.exports = {
   db,
   dbAsync,
-  initDb
+  initDb,
+  getSetting,
+  setSetting,
+  getAllSettings
 };

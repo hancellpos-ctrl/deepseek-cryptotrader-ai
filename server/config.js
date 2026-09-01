@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+const { setSetting, getSetting, getAllSettings } = require('./db');
 
 const CONFIG_FILE = path.join(__dirname, '..', 'data', 'config.json');
 
@@ -61,6 +62,21 @@ function loadConfig() {
 
 let currentConfig = loadConfig();
 
+async function syncConfigWithDb() {
+  try {
+    const dbSettings = await getAllSettings();
+    if (dbSettings && Object.keys(dbSettings).length > 0) {
+      currentConfig = { ...currentConfig, ...dbSettings };
+      console.log('[CONFIG] Settings synced from SQLite database successfully (PIN & config active).');
+    }
+  } catch (err) {
+    console.error('[CONFIG] Error syncing with DB:', err.message);
+  }
+}
+
+// Auto-sync with DB immediately
+syncConfigWithDb().catch(e => console.error('[CONFIG] Init sync error:', e));
+
 function getConfig() {
   return currentConfig;
 }
@@ -107,6 +123,12 @@ function updateConfig(newSettings) {
   }
 
   currentConfig = { ...currentConfig, ...newSettings };
+
+  // Persist to SQLite DB asynchronously
+  for (const [k, v] of Object.entries(newSettings)) {
+    setSetting(k, v).catch(e => console.error(`[DB] Failed to save setting ${k}:`, e.message));
+  }
+
   try {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentConfig, null, 2), 'utf8');
     return { success: true, config: getSafeConfig() };
@@ -119,5 +141,6 @@ function updateConfig(newSettings) {
 module.exports = {
   getConfig,
   getSafeConfig,
-  updateConfig
+  updateConfig,
+  syncConfigWithDb
 };

@@ -351,11 +351,15 @@ async function fetchMarketData() {
 // PIN SECURITY & AUTHENTICATION (ADMIN VS VISUAL)
 // ----------------------------------------------------
 function initAuth() {
-  const savedPin = sessionStorage.getItem('wp_admin_pin');
+  const savedPin = localStorage.getItem('wp_admin_pin') || sessionStorage.getItem('wp_admin_pin');
   if (savedPin) {
     verifyPinOnBackend(savedPin).then(valid => {
       state.isAdmin = valid;
-      if (!valid) {
+      if (valid) {
+        localStorage.setItem('wp_admin_pin', savedPin);
+        sessionStorage.setItem('wp_admin_pin', savedPin);
+      } else {
+        localStorage.removeItem('wp_admin_pin');
         sessionStorage.removeItem('wp_admin_pin');
       }
       updateAuthUI();
@@ -390,7 +394,7 @@ function initAuth() {
 
 function getAuthHeaders() {
   const headers = { 'Content-Type': 'application/json' };
-  const pin = sessionStorage.getItem('wp_admin_pin');
+  const pin = localStorage.getItem('wp_admin_pin') || sessionStorage.getItem('wp_admin_pin');
   if (pin) {
     headers['x-admin-pin'] = pin;
   }
@@ -423,15 +427,15 @@ function updateAuthUI() {
 
   if (state.isAdmin) {
     if (btnAuth) {
-      btnAuth.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all border border-[#00f59b]/40 bg-[#00f59b]/10 hover:bg-[#00f59b]/20';
+      btnAuth.className = 'flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl text-xs font-bold transition-all border border-[#00f59b]/40 bg-[#00f59b]/10 hover:bg-[#00f59b]/20';
     }
     if (iconAuth) {
       iconAuth.setAttribute('data-lucide', 'shield-check');
-      iconAuth.className = 'w-3.5 h-3.5 text-[#00f59b]';
+      iconAuth.className = 'w-3.5 h-3.5 text-[#00f59b] shrink-0';
     }
     if (textAuth) {
       textAuth.innerText = 'Admin';
-      textAuth.className = 'text-[11px] font-mono text-[#00f59b] font-bold';
+      textAuth.className = 'text-[10px] sm:text-[11px] font-mono text-[#00f59b] font-bold';
     }
     if (banner) banner.classList.add('hidden');
     if (secBadge) {
@@ -452,15 +456,15 @@ function updateAuthUI() {
     });
   } else {
     if (btnAuth) {
-      btnAuth.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20';
+      btnAuth.className = 'flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl text-xs font-bold transition-all border border-amber-500/30 bg-amber-500/10 hover:border-amber-500/60';
     }
     if (iconAuth) {
       iconAuth.setAttribute('data-lucide', 'eye');
-      iconAuth.className = 'w-3.5 h-3.5 text-amber-400';
+      iconAuth.className = 'w-3.5 h-3.5 text-amber-400 shrink-0';
     }
     if (textAuth) {
-      textAuth.innerText = 'Modo Visual';
-      textAuth.className = 'text-[11px] font-mono text-amber-400 font-bold';
+      textAuth.innerText = 'Visual';
+      textAuth.className = 'text-[10px] sm:text-[11px] font-mono text-amber-400 font-bold';
     }
     if (banner) banner.classList.remove('hidden');
     if (secBadge) {
@@ -494,6 +498,7 @@ function handleAuthButtonClick() {
 
 function toggleAuthSession() {
   if (state.isAdmin) {
+    localStorage.removeItem('wp_admin_pin');
     sessionStorage.removeItem('wp_admin_pin');
     state.isAdmin = false;
     updateAuthUI();
@@ -547,6 +552,7 @@ function closePinModal() {
 function continueAsVisualMode() {
   closePinModal();
   if (state.isAdmin) {
+    localStorage.removeItem('wp_admin_pin');
     sessionStorage.removeItem('wp_admin_pin');
     state.isAdmin = false;
     updateAuthUI();
@@ -609,6 +615,7 @@ async function submitPinVerification() {
     const data = await res.json();
 
     if (data.success && data.isAdmin) {
+      localStorage.setItem('wp_admin_pin', pin);
       sessionStorage.setItem('wp_admin_pin', pin);
       state.isAdmin = true;
       closePinModal();
@@ -653,7 +660,8 @@ function openChangePinModal() {
   const confInput = document.getElementById('inputConfirmNewPin');
   const errEl = document.getElementById('changePinError');
 
-  if (curInput) curInput.value = sessionStorage.getItem('wp_admin_pin') || '';
+  const savedPin = localStorage.getItem('wp_admin_pin') || sessionStorage.getItem('wp_admin_pin') || '';
+  if (curInput) curInput.value = savedPin;
   if (newInput) newInput.value = '';
   if (confInput) confInput.value = '';
   if (errEl) errEl.innerText = '';
@@ -703,6 +711,7 @@ async function submitChangePin() {
     const data = await res.json();
 
     if (data.success) {
+      localStorage.setItem('wp_admin_pin', newPin);
       sessionStorage.setItem('wp_admin_pin', newPin);
       closeChangePinModal();
       playNotificationSound('profit');

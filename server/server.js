@@ -4,7 +4,7 @@ const WebSocket = require('ws');
 const path = require('path');
 const cors = require('cors');
 
-const { getConfig, getSafeConfig, updateConfig } = require('./config');
+const { getConfig, getSafeConfig, updateConfig, syncConfigWithDb } = require('./config');
 const { fetchKlines, fetch24hrTicker, fetchAllPrices, initAllPricesStream, connectBinanceStream, fetchCurrentPrice, fetchTopTrendingPairs, fetchTradFiStocks } = require('./binanceService');
 const { analyzeCandles } = require('./indicators');
 const paperEngine = require('./paperTradingEngine');
@@ -468,12 +468,13 @@ app.get('/api/logs', (req, res) => {
 // Start Server
 async function startServer() {
   try {
+    await syncConfigWithDb();
     await Promise.race([
       paperEngine.ready(),
       new Promise(r => setTimeout(r, 3000))
     ]);
   } catch (e) {
-    console.warn('[Server] paperEngine ready warning:', e.message);
+    console.warn('[Server] Startup sync warning:', e.message);
   }
 
   server.listen(PORT, '0.0.0.0', () => {
