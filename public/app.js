@@ -27,7 +27,10 @@ const state = {
   autoPilot: true,
   config: {},
   isScanning: false,
-  activeTab: 'view-trades'
+  activeTab: 'view-trades',
+  isAdmin: false,
+  pinInput: '',
+  pendingAction: null
 };
 
 let ws = null;
@@ -84,6 +87,7 @@ function toggleTheme() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  initAuth();
   initWebSocket();
   fetchInitialData();
   fetchMarketData();
@@ -343,6 +347,367 @@ async function fetchMarketData() {
   } catch (e) {}
 }
 
+// ----------------------------------------------------
+// PIN SECURITY & AUTHENTICATION (ADMIN VS VISUAL)
+// ----------------------------------------------------
+function initAuth() {
+  const savedPin = sessionStorage.getItem('wp_admin_pin');
+  if (savedPin) {
+    verifyPinOnBackend(savedPin).then(valid => {
+      state.isAdmin = valid;
+      if (!valid) {
+        sessionStorage.removeItem('wp_admin_pin');
+      }
+      updateAuthUI();
+    });
+  } else {
+    state.isAdmin = false;
+    updateAuthUI();
+  }
+
+  // Bind physical keyboard events for PIN modal
+  document.addEventListener('keydown', (e) => {
+    const pinModal = document.getElementById('pinModal');
+    if (pinModal && !pinModal.classList.contains('hidden')) {
+      if (e.key >= '0' && e.key <= '9') {
+        handlePinKey(e.key);
+      } else if (e.key === 'Backspace') {
+        handlePinBackspace();
+      } else if (e.key === 'Escape') {
+        closePinModal();
+      } else if (e.key === 'Enter') {
+        submitPinVerification();
+      }
+    }
+  });
+}
+
+function getAuthHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  const pin = sessionStorage.getItem('wp_admin_pin');
+  if (pin) {
+    headers['x-admin-pin'] = pin;
+  }
+  return headers;
+}
+
+async function verifyPinOnBackend(pin) {
+  try {
+    const res = await fetch('/api/auth/verify-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin })
+    });
+    const data = await res.json();
+    return Boolean(data.success && data.isAdmin);
+  } catch (e) {
+    return false;
+  }
+}
+
+function updateAuthUI() {
+  const btnAuth = document.getElementById('btnAuthMode');
+  const iconAuth = document.getElementById('authModeIcon');
+  const textAuth = document.getElementById('authModeText');
+  const banner = document.getElementById('readOnlyBanner');
+  const secBadge = document.getElementById('securityStatusBadge');
+  const btnToggleAuthText = document.getElementById('btnToggleAuthText');
+  const iconToggleAuth = document.getElementById('iconToggleAuth');
+  const lockedNotice = document.getElementById('settingsLockedNotice');
+
+  if (state.isAdmin) {
+    if (btnAuth) {
+      btnAuth.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all border border-[#00f59b]/40 bg-[#00f59b]/10 hover:bg-[#00f59b]/20';
+    }
+    if (iconAuth) {
+      iconAuth.setAttribute('data-lucide', 'shield-check');
+      iconAuth.className = 'w-3.5 h-3.5 text-[#00f59b]';
+    }
+    if (textAuth) {
+      textAuth.innerText = 'Admin';
+      textAuth.className = 'text-[11px] font-mono text-[#00f59b] font-bold';
+    }
+    if (banner) banner.classList.add('hidden');
+    if (secBadge) {
+      secBadge.innerText = 'Modo Administrador';
+      secBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#00f59b]/20 text-[#00f59b] border border-[#00f59b]/30';
+    }
+    if (btnToggleAuthText) btnToggleAuthText.innerText = 'Bloquear / Salir';
+    if (iconToggleAuth) {
+      iconToggleAuth.setAttribute('data-lucide', 'lock');
+      iconToggleAuth.className = 'w-3.5 h-3.5 text-[#ff4d6d]';
+    }
+    if (lockedNotice) lockedNotice.classList.add('hidden');
+
+    // Enable settings controls
+    ['inputDeepSeekKey', 'selectDeepSeekModel', 'selectScanMode', 'selectLeverage', 'inputRiskPercent', 'inputMaxPositions', 'inputTargetProfit', 'inputTelegramToken', 'inputTelegramChatId', 'checkboxTelegramEnabled', 'btnSaveSettings', 'btnResetWallet'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('read-only-disabled');
+    });
+  } else {
+    if (btnAuth) {
+      btnAuth.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20';
+    }
+    if (iconAuth) {
+      iconAuth.setAttribute('data-lucide', 'eye');
+      iconAuth.className = 'w-3.5 h-3.5 text-amber-400';
+    }
+    if (textAuth) {
+      textAuth.innerText = 'Modo Visual';
+      textAuth.className = 'text-[11px] font-mono text-amber-400 font-bold';
+    }
+    if (banner) banner.classList.remove('hidden');
+    if (secBadge) {
+      secBadge.innerText = 'Modo Visual (Solo Lectura)';
+      secBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30';
+    }
+    if (btnToggleAuthText) btnToggleAuthText.innerText = 'Ingresar PIN';
+    if (iconToggleAuth) {
+      iconToggleAuth.setAttribute('data-lucide', 'unlock');
+      iconToggleAuth.className = 'w-3.5 h-3.5 text-amber-400';
+    }
+    if (lockedNotice) lockedNotice.classList.remove('hidden');
+
+    // Disable settings controls in visual mode
+    ['inputDeepSeekKey', 'selectDeepSeekModel', 'selectScanMode', 'selectLeverage', 'inputRiskPercent', 'inputMaxPositions', 'inputTargetProfit', 'inputTelegramToken', 'inputTelegramChatId', 'checkboxTelegramEnabled', 'btnSaveSettings', 'btnResetWallet'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('read-only-disabled');
+    });
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function handleAuthButtonClick() {
+  if (state.isAdmin) {
+    toggleAuthSession();
+  } else {
+    openPinModal();
+  }
+}
+
+function toggleAuthSession() {
+  if (state.isAdmin) {
+    sessionStorage.removeItem('wp_admin_pin');
+    state.isAdmin = false;
+    updateAuthUI();
+    showToast('🔒 Sesión cerrada. Modo Visual activado.', 'info');
+  } else {
+    openPinModal();
+  }
+}
+
+function openPinModal(pendingAction = null) {
+  state.pendingAction = pendingAction;
+  state.pinInput = '';
+  updatePinSlots();
+  
+  const errEl = document.getElementById('pinErrorMessage');
+  if (errEl) errEl.innerText = '';
+
+  const modal = document.getElementById('pinModal');
+  const card = document.getElementById('pinModalCard');
+  if (modal) {
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+      modal.classList.remove('opacity-0');
+      if (card) card.classList.remove('scale-95');
+    }, 10);
+  }
+
+  const hiddenInput = document.getElementById('hiddenPinInput');
+  if (hiddenInput) {
+    hiddenInput.value = '';
+    hiddenInput.focus();
+  }
+}
+
+function closePinModal() {
+  const modal = document.getElementById('pinModal');
+  const card = document.getElementById('pinModalCard');
+  if (modal) {
+    modal.classList.add('opacity-0');
+    if (card) card.classList.add('scale-95');
+    setTimeout(() => modal.classList.add('hidden'), 200);
+  }
+  state.pendingAction = null;
+  state.pinInput = '';
+}
+
+function continueAsVisualMode() {
+  closePinModal();
+  if (state.isAdmin) {
+    sessionStorage.removeItem('wp_admin_pin');
+    state.isAdmin = false;
+    updateAuthUI();
+  }
+  showToast('👁️ Continuando en Modo Visual (Solo Lectura)', 'info');
+}
+
+function handlePinKey(digit) {
+  if (state.pinInput.length < 8) {
+    state.pinInput += digit;
+    updatePinSlots();
+    if (state.pinInput.length === 4) {
+      submitPinVerification();
+    }
+  }
+}
+
+function handlePinBackspace() {
+  if (state.pinInput.length > 0) {
+    state.pinInput = state.pinInput.slice(0, -1);
+    updatePinSlots();
+    const errEl = document.getElementById('pinErrorMessage');
+    if (errEl) errEl.innerText = '';
+  }
+}
+
+function handlePinClear() {
+  state.pinInput = '';
+  updatePinSlots();
+  const errEl = document.getElementById('pinErrorMessage');
+  if (errEl) errEl.innerText = '';
+}
+
+function updatePinSlots() {
+  for (let i = 0; i < 4; i++) {
+    const slot = document.getElementById(`pin-slot-${i}`);
+    if (slot) {
+      if (i < state.pinInput.length) {
+        slot.classList.add('filled');
+      } else {
+        slot.classList.remove('filled');
+      }
+    }
+  }
+}
+
+async function submitPinVerification() {
+  const pin = state.pinInput;
+  const errEl = document.getElementById('pinErrorMessage');
+  const card = document.getElementById('pinModalCard');
+
+  if (errEl) errEl.innerText = 'Verificando...';
+
+  try {
+    const res = await fetch('/api/auth/verify-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin })
+    });
+    const data = await res.json();
+
+    if (data.success && data.isAdmin) {
+      sessionStorage.setItem('wp_admin_pin', pin);
+      state.isAdmin = true;
+      closePinModal();
+      updateAuthUI();
+      playNotificationSound('profit');
+      showToast('🔓 ¡Acceso de Administrador Desbloqueado!', 'success');
+
+      if (state.pendingAction && typeof state.pendingAction === 'function') {
+        const action = state.pendingAction;
+        state.pendingAction = null;
+        action();
+      }
+    } else {
+      if (errEl) errEl.innerText = data.error || 'PIN incorrecto. Intenta de nuevo.';
+      if (card) {
+        card.classList.add('shake');
+        setTimeout(() => card.classList.remove('shake'), 450);
+      }
+      playNotificationSound('loss');
+      setTimeout(() => {
+        state.pinInput = '';
+        updatePinSlots();
+      }, 400);
+    }
+  } catch (err) {
+    if (errEl) errEl.innerText = 'Error de conexión';
+  }
+}
+
+// Change PIN Modal
+function openChangePinModal() {
+  if (!state.isAdmin) {
+    openPinModal(() => openChangePinModal());
+    showToast('🔒 Introduce tu PIN actual para cambiarlo', 'warning');
+    return;
+  }
+
+  const modal = document.getElementById('changePinModal');
+  const card = document.getElementById('changePinModalCard');
+  const curInput = document.getElementById('inputCurrentPin');
+  const newInput = document.getElementById('inputNewPin');
+  const confInput = document.getElementById('inputConfirmNewPin');
+  const errEl = document.getElementById('changePinError');
+
+  if (curInput) curInput.value = sessionStorage.getItem('wp_admin_pin') || '';
+  if (newInput) newInput.value = '';
+  if (confInput) confInput.value = '';
+  if (errEl) errEl.innerText = '';
+
+  if (modal) {
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+      modal.classList.remove('opacity-0');
+      if (card) card.classList.remove('scale-95');
+      if (newInput) newInput.focus();
+    }, 10);
+  }
+}
+
+function closeChangePinModal() {
+  const modal = document.getElementById('changePinModal');
+  const card = document.getElementById('changePinModalCard');
+  if (modal) {
+    modal.classList.add('opacity-0');
+    if (card) card.classList.add('scale-95');
+    setTimeout(() => modal.classList.add('hidden'), 200);
+  }
+}
+
+async function submitChangePin() {
+  const currentPin = document.getElementById('inputCurrentPin')?.value.trim();
+  const newPin = document.getElementById('inputNewPin')?.value.trim();
+  const confirmPin = document.getElementById('inputConfirmNewPin')?.value.trim();
+  const errEl = document.getElementById('changePinError');
+
+  if (!newPin || newPin.length < 4 || newPin.length > 8 || !/^\d+$/.test(newPin)) {
+    if (errEl) errEl.innerText = 'El nuevo PIN debe tener entre 4 y 8 números.';
+    return;
+  }
+
+  if (newPin !== confirmPin) {
+    if (errEl) errEl.innerText = 'Los nuevos PINs no coinciden.';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/change-pin', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ currentPin, newPin })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      sessionStorage.setItem('wp_admin_pin', newPin);
+      closeChangePinModal();
+      playNotificationSound('profit');
+      showToast('🔑 ¡PIN de seguridad actualizado con éxito!', 'success');
+    } else {
+      if (errEl) errEl.innerText = data.error || 'Error al actualizar PIN';
+    }
+  } catch (err) {
+    if (errEl) errEl.innerText = err.message;
+  }
+}
+
+// ----------------------------------------------------
+// API ACTIONS & TRADING (WITH PIN GUARDS)
+// ----------------------------------------------------
 async function triggerAiScan(symbol = 'BTCUSDT') {
   if (state.isScanning) return;
   state.isScanning = true;
@@ -351,14 +716,15 @@ async function triggerAiScan(symbol = 'BTCUSDT') {
   try {
     const res = await fetch('/api/analyze', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol, timeframe: '15m', execute: true })
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ symbol, timeframe: '15m', execute: state.isAdmin })
     });
     const data = await res.json();
     if (data.success) {
       state.latestAiSignal = data.analysis;
       renderAiAlertCard();
-      showToast(`Señal ${data.analysis.symbol}: ${data.analysis.signal} (${data.analysis.confidence}%)`, 'success');
+      const modeLabel = state.isAdmin ? '' : ' (Visual)';
+      showToast(`Señal ${data.analysis.symbol}: ${data.analysis.signal} (${data.analysis.confidence}%)${modeLabel}`, 'success');
       navigateToTab('view-alerts');
     } else {
       showToast('Error en análisis: ' + data.error, 'danger');
@@ -371,16 +737,27 @@ async function triggerAiScan(symbol = 'BTCUSDT') {
 }
 
 async function closePosition(positionId) {
+  if (!state.isAdmin) {
+    openPinModal(() => closePosition(positionId));
+    showToast('🔒 Introduce tu PIN de Admin para cerrar la operación', 'warning');
+    return;
+  }
+
   try {
     const res = await fetch('/api/trade/close', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ positionId })
     });
     const data = await res.json();
     if (data.success) {
       showToast('Posición cerrada con éxito', 'info');
     } else {
+      if (data.readOnly) {
+        state.isAdmin = false;
+        updateAuthUI();
+        openPinModal(() => closePosition(positionId));
+      }
       showToast('Error al cerrar: ' + data.error, 'danger');
     }
   } catch (err) {
@@ -389,11 +766,19 @@ async function closePosition(positionId) {
 }
 
 async function toggleAutoPilot() {
+  if (!state.isAdmin) {
+    const toggle = document.getElementById('autoPilotToggle');
+    if (toggle) toggle.checked = state.autoPilot;
+    openPinModal(() => toggleAutoPilot());
+    showToast('🔒 Introduce tu PIN de Admin para modificar Auto-IA', 'warning');
+    return;
+  }
+
   const newStatus = !state.autoPilot;
   try {
     const res = await fetch('/api/autopilot/toggle', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ enabled: newStatus })
     });
     const data = await res.json();
@@ -401,6 +786,10 @@ async function toggleAutoPilot() {
       state.autoPilot = data.isRunning;
       renderConfig();
       showToast(newStatus ? '🚀 Auto-IA Activada' : '⏸️ Auto-IA Pausada', newStatus ? 'success' : 'warning');
+    } else if (data.readOnly) {
+      state.isAdmin = false;
+      updateAuthUI();
+      openPinModal(() => toggleAutoPilot());
     }
   } catch (err) {
     showToast('Error: ' + err.message, 'danger');
@@ -408,11 +797,17 @@ async function toggleAutoPilot() {
 }
 
 async function resetPaperWallet() {
+  if (!state.isAdmin) {
+    openPinModal(() => resetPaperWallet());
+    showToast('🔒 Introduce tu PIN de Admin para reiniciar el balance', 'warning');
+    return;
+  }
+
   if (!confirm('¿Reiniciar balance a $1,000 USDT (100% Dinero Propio) y limpiar historial?')) return;
   try {
     const res = await fetch('/api/wallet/reset', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ initialBalance: 1000.0 })
     });
     const data = await res.json();
@@ -420,6 +815,10 @@ async function resetPaperWallet() {
       state.wallet = data.wallet;
       renderAll();
       showToast('Balance reiniciado a $1,000 USDT', 'success');
+    } else if (data.readOnly) {
+      state.isAdmin = false;
+      updateAuthUI();
+      openPinModal(() => resetPaperWallet());
     }
   } catch (err) {
     showToast('Error: ' + err.message, 'danger');
@@ -827,6 +1226,12 @@ function updateConnectionStatus(connected) {
 }
 
 async function saveSettings() {
+  if (!state.isAdmin) {
+    openPinModal(() => saveSettings());
+    showToast('🔒 Introduce tu PIN de Admin para guardar ajustes', 'warning');
+    return;
+  }
+
   const settings = {
     deepseekModel: document.getElementById('selectDeepSeekModel').value,
     scanMode: document.getElementById('selectScanMode').value,
@@ -848,13 +1253,20 @@ async function saveSettings() {
   try {
     const res = await fetch('/api/config', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(settings)
     });
     const data = await res.json();
     if (data.success) {
       state.config = data.config;
       showToast('Configuración guardada con éxito', 'success');
+    } else if (data.readOnly) {
+      state.isAdmin = false;
+      updateAuthUI();
+      openPinModal(() => saveSettings());
+      showToast('🔒 Se requiere PIN de Administrador', 'warning');
+    } else {
+      showToast('Error: ' + data.error, 'danger');
     }
   } catch (err) {
     showToast('Error: ' + err.message, 'danger');
@@ -862,18 +1274,28 @@ async function saveSettings() {
 }
 
 async function testTelegram() {
+  if (!state.isAdmin) {
+    openPinModal(() => testTelegram());
+    showToast('🔒 Introduce tu PIN de Admin para probar Telegram', 'warning');
+    return;
+  }
+
   const token = document.getElementById('inputTelegramToken')?.value.trim();
   const chat = document.getElementById('inputTelegramChatId')?.value.trim();
 
   try {
     const res = await fetch('/api/telegram/test', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ botToken: token, chatId: chat })
     });
     const data = await res.json();
     if (data.success) {
       showToast('¡Alerta de prueba enviada a Telegram!', 'success');
+    } else if (data.readOnly) {
+      state.isAdmin = false;
+      updateAuthUI();
+      openPinModal(() => testTelegram());
     } else {
       showToast('Error Telegram: ' + data.error, 'danger');
     }

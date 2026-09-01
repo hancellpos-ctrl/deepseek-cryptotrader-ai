@@ -446,3 +446,95 @@ html.light .btn-primary {
 html.light .btn-primary:hover {
   filter: brightness(1.06) !important;
 }
+
+/* ============================================================== */
+/* PIN SECURITY & AUTHENTICATION STYLES */
+/* ============================================================== */
+.pin-slot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #141b2b;
+  border: 1.5px solid #222e48;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pin-slot.filled {
+  background: #00f2fe;
+  border-color: #00f2fe;
+  transform: scale(1.15);
+  box-shadow: 0 0 12px rgba(0, 242, 254, 0.7);
+}
+
+.pin-key {
+  background: #101625;
+  border: 1px solid #1c263c;
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding: 12px 0;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.pin-key:hover {
+  background: #182238;
+  border-color: #2a3b5c;
+  color: #00f2fe;
+}
+
+.pin-key:active {
+  transform: scale(0.92);
+  background: #202d4a;
+}
+
+@keyframes shakeAnimation {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+
+.shake {
+  animation: shakeAnimation 0.4s ease-in-out;
+}
+
+/* Read-Only State Helpers */
+.read-only-disabled {
+  opacity: 0.55 !important;
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+}
+
+/* Light Theme Adaptations for PIN Modal */
+html.light .pin-slot {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+html.light .pin-slot.filled {
+  background: #0284c7;
+  border-color: #0284c7;
+  box-shadow: 0 0 10px rgba(2, 132, 199, 0.5);
+}
+
+html.light .pin-key {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+html.light .pin-key:hover {
+  background: #e2e8f0;
+  color: #0284c7;
+}
+
+html.light .pin-key:active {
+  background: #cbd5e1;
+}
+

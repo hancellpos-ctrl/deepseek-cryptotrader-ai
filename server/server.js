@@ -21,6 +21,27 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// Middleware de verificación de PIN de Administrador (Doble Rol: Admin vs Visual)
+function verifyAdminPin(req) {
+  const config = getConfig();
+  if (config.pinEnabled === false || !config.securityPin) {
+    return true; // Protección por PIN desactivada
+  }
+  const providedPin = req.headers['x-admin-pin'] || req.body?.pin || req.query?.pin;
+  return String(providedPin) === String(config.securityPin);
+}
+
+function requireAdminPin(req, res, next) {
+  if (verifyAdminPin(req)) {
+    return next();
+  }
+  return res.status(403).json({
+    success: false,
+    error: '🔒 Acción protegida: Estás en Modo Visual (Solo Lectura). Se requiere PIN de Administrador.',
+    readOnly: true
+  });
+}
+
 app.get('/health', (req, res) => res.status(200).send('OK'));
 
 // Broadcast to all connected WebSockets
@@ -229,12 +250,74 @@ app.get('/api/wallet', (req, res) => {
 });
 
 /**
- * Reset Paper Wallet back to $1,000 USDT
+ * ----------------------------------------------------
+ * PIN AUTHENTICATION & SECURITY ENDPOINTS
+ * ----------------------------------------------------
  */
-app.post('/api/wallet/reset', (req, res) => {
+
+/**
+ * Verify Admin Security PIN
+ */
+app.post('/api/auth/verify-pin', (req, res) => {
+  const { pin } = req.body;
+  const config = getConfig();
+
+  if (config.pinEnabled === false) {
+    return res.json({ success: true, isAdmin: true, pinEnabled: false, message: 'Protección por PIN desactivada' });
+  }
+
+  if (String(pin) === String(config.securityPin)) {
+    return res.json({ success: true, isAdmin: true, pinEnabled: true, message: 'PIN verificado con éxito' });
+  }
+
+  return res.status(401).json({ success: false, isAdmin: false, error: 'PIN de seguridad incorrecto' });
+});
+
+/**
+ * Change or Update Security PIN (Requires current valid PIN)
+ */
+app.post('/api/auth/change-pin', requireAdminPin, (req, res) => {
+  try {
+    const { currentPin, newPin, pinEnabled } = req.body;
+    const config = getConfig();
+
+    if (config.pinEnabled !== false && String(currentPin) !== String(config.securityPin)) {
+      return res.status(400).json({ success: false, error: 'El PIN actual proporcionado es incorrecto' });
+    }
+
+    const updates = {};
+    if (newPin !== undefined && newPin !== null && newPin !== '') {
+      const cleanPin = String(newPin).trim();
+      if (cleanPin.length < 4 || cleanPin.length > 8 || !/^\d+$/.test(cleanPin)) {
+        return res.status(400).json({ success: false, error: 'El nuevo PIN debe contener entre 4 y 8 números' });
+      }
+      updates.securityPin = cleanPin;
+    }
+
+    if (typeof pinEnabled === 'boolean') {
+      updates.pinEnabled = pinEnabled;
+    }
+
+    const result = updateConfig(updates);
+    if (result.success) {
+      autoTrader.log('Ajustes de PIN y seguridad actualizados por el Administrador.', 'info');
+      broadcast('CONFIG_UPDATED', result.config);
+      return res.json({ success: true, message: 'Seguridad y PIN actualizados correctamente', config: result.config });
+    } else {
+      return res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Reset Paper Wallet back to $1,000 USDT (Admin Protected)
+ */
+app.post('/api/wallet/reset', requireAdminPin, (req, res) => {
   const initialBalance = req.body.initialBalance || 1000.0;
   const newSummary = paperEngine.resetWallet(initialBalance);
-  autoTrader.log(`Balance emulado reiniciado a $${initialBalance} USDT.`, 'info');
+  autoTrader.log(`Balance emulado reiniciado a $${initialBalance} USDT por el administrador.`, 'info');
   res.json({ success: true, message: 'Wallet reset successfully', wallet: newSummary });
 });
 
@@ -247,27 +330,31 @@ app.post('/api/analyze', async (req, res) => {
     const timeframe = req.body.timeframe || currentActiveInterval;
     const executeIfSignal = req.body.execute === true;
 
-    autoTrader.log(`Iniciando análisis manual con DeepSeek para ${symbol} (${timeframe})...`, 'info');
+    autoTrader.log(`Iniciando análisis con DeepSeek para ${symbol} (${timeframe})...`, 'info');
     const result = await analyzeMarketWithDeepSeek(symbol, timeframe, paperEngine.positions);
 
     broadcast('AI_ANALYSIS_RESULT', result);
 
     if (executeIfSignal && result.signal !== 'HOLD') {
-      const config = getConfig();
-      await autoTrader.evaluateAndExecuteTrade(result, config);
+      if (verifyAdminPin(req)) {
+        const config = getConfig();
+        await autoTrader.evaluateAndExecuteTrade(result, config);
+      } else {
+        autoTrader.log(`Modo visual activo: Señal ${result.signal} en ${symbol} detectada pero no ejecutada (Se requiere PIN de Admin).`, 'info');
+      }
     }
 
     res.json({ success: true, analysis: result });
   } catch (err) {
-    autoTrader.log(`Error en análisis manual: ${err.message}`, 'error');
+    autoTrader.log(`Error en análisis: ${err.message}`, 'error');
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
 /**
- * Open Trade (Simulated / Real)
+ * Open Trade (Admin Protected)
  */
-app.post('/api/trade/open', async (req, res) => {
+app.post('/api/trade/open', requireAdminPin, async (req, res) => {
   try {
     const { symbol, side, leverage, marginAmount, takeProfit, stopLoss } = req.body;
     const currentPrice = await fetchCurrentPrice(symbol || currentActiveSymbol);
@@ -290,9 +377,9 @@ app.post('/api/trade/open', async (req, res) => {
 });
 
 /**
- * Close Active Position
+ * Close Active Position (Admin Protected)
  */
-app.post('/api/trade/close', async (req, res) => {
+app.post('/api/trade/close', requireAdminPin, async (req, res) => {
   try {
     const { positionId, symbol } = req.body;
     let targetPos = null;
@@ -317,13 +404,13 @@ app.post('/api/trade/close', async (req, res) => {
 });
 
 /**
- * Get / Update Configuration
+ * Get / Update Configuration (Update Admin Protected)
  */
 app.get('/api/config', (req, res) => {
   res.json({ success: true, config: getSafeConfig() });
 });
 
-app.post('/api/config', (req, res) => {
+app.post('/api/config', requireAdminPin, (req, res) => {
   const result = updateConfig(req.body);
   if (result.success) {
     const fullConfig = getConfig();
@@ -340,9 +427,9 @@ app.post('/api/config', (req, res) => {
 });
 
 /**
- * Toggle Auto-Pilot
+ * Toggle Auto-Pilot (Admin Protected)
  */
-app.post('/api/autopilot/toggle', (req, res) => {
+app.post('/api/autopilot/toggle', requireAdminPin, (req, res) => {
   const { enabled } = req.body;
   updateConfig({ autoPilot: enabled });
   if (enabled) {
@@ -355,9 +442,9 @@ app.post('/api/autopilot/toggle', (req, res) => {
 });
 
 /**
- * Test Telegram Connection
+ * Test Telegram Connection (Admin Protected)
  */
-app.post('/api/telegram/test', async (req, res) => {
+app.post('/api/telegram/test', requireAdminPin, async (req, res) => {
   const { botToken, chatId } = req.body;
   const config = getConfig();
   const token = botToken || config.telegramBotToken;

@@ -44,7 +44,13 @@
       </div>
     </div>
 
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-1.5">
+      <!-- Auth Status & Security Button (Admin vs Visual) -->
+      <button id="btnAuthMode" onclick="handleAuthButtonClick()" type="button" class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all border border-[#172033] bg-[#0d121e] hover:border-[#00f2fe]/40" title="Control de Acceso / PIN">
+        <i data-lucide="eye" id="authModeIcon" class="w-3.5 h-3.5 text-amber-400"></i>
+        <span id="authModeText" class="text-[11px] font-mono text-amber-400 font-bold">Modo Visual</span>
+      </button>
+
       <!-- Theme Switch Button (Dark / Light) -->
       <button id="themeToggleBtn" onclick="toggleTheme()" type="button" class="w-8 h-8 rounded-xl bg-[#0d121e] border border-[#172033] flex items-center justify-center text-[#8899a6] hover:text-[#00f2fe] transition-all" title="Cambiar a Modo Claro / Oscuro">
         <i data-lucide="sun" id="themeIconSun" class="w-4 h-4 text-amber-400"></i>
@@ -63,6 +69,17 @@
   <!-- MAIN APP VIEWS CONTAINER -->
   <!-- ============================================================== -->
   <main class="px-3.5 py-3.5 max-w-md mx-auto">
+
+    <!-- Read-Only / Visual Mode Notification Banner -->
+    <div id="readOnlyBanner" class="card p-2.5 bg-amber-500/10 border-amber-500/30 flex items-center justify-between gap-2 text-amber-300 text-xs mb-3.5">
+      <div class="flex items-center gap-2">
+        <i data-lucide="shield-alert" class="w-4 h-4 text-amber-400 shrink-0"></i>
+        <span class="text-[11px] leading-tight"><b>Modo Solo Lectura:</b> Vista en vivo activa. Acciones bloqueadas.</span>
+      </div>
+      <button onclick="openPinModal()" type="button" class="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-black text-[10px] rounded-lg shrink-0 transition-all shadow-sm">
+        Ingresar PIN
+      </button>
+    </div>
 
     <!-- ============================================================ -->
     <!-- MODULE 1: OPERACIONES (Dashboard & Live Trades) -->
@@ -277,6 +294,7 @@
     </section>
 
     <!-- ============================================================ -->
+    <!-- ============================================================ -->
     <!-- MODULE 4: AJUSTES (Configuration & API Keys) -->
     <!-- ============================================================ -->
     <section id="view-settings" class="app-view space-y-3.5">
@@ -285,11 +303,51 @@
           <i data-lucide="sliders" class="w-4 h-4 text-[#00f2fe]"></i>
           <h2 class="font-extrabold text-xs uppercase tracking-wider text-white">Configuración del Bot</h2>
         </div>
-        <span class="text-[10px] text-[#8899a6] font-mono">v1.3</span>
+        <span class="text-[10px] text-[#8899a6] font-mono">v1.4</span>
+      </div>
+
+      <!-- Security & Access Control (PIN Protection) -->
+      <div class="card p-4 bg-[#0d121e] border-[#172033] space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#ffd166]/20 to-[#ff9f1c]/20 flex items-center justify-center border border-[#ffd166]/30">
+              <i data-lucide="shield" class="w-4 h-4 text-[#ffd166]"></i>
+            </div>
+            <div>
+              <h3 class="text-xs font-bold text-white">Control de Acceso (PIN)</h3>
+              <p class="text-[10px] text-[#8899a6]">Doble Rol: Admin (con PIN) y Visual (sin PIN)</p>
+            </div>
+          </div>
+          <span id="securityStatusBadge" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            Modo Visual
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button id="btnOpenChangePin" onclick="openChangePinModal()" type="button" class="px-3 py-2 text-xs font-bold rounded-xl bg-[#182136] hover:bg-[#202c46] text-white border border-[#263552] flex items-center justify-center gap-1.5 transition-all">
+            <i data-lucide="key" class="w-3.5 h-3.5 text-[#00f2fe]"></i>
+            <span>Cambiar PIN</span>
+          </button>
+          <button id="btnToggleAuthSession" onclick="toggleAuthSession()" type="button" class="px-3 py-2 text-xs font-bold rounded-xl bg-[#182136] hover:bg-[#202c46] text-amber-400 border border-[#263552] flex items-center justify-center gap-1.5 transition-all">
+            <i data-lucide="lock" id="iconToggleAuth" class="w-3.5 h-3.5"></i>
+            <span id="btnToggleAuthText">Ingresar PIN</span>
+          </button>
+        </div>
       </div>
 
       <!-- Settings Card -->
-      <div class="card p-4 bg-[#0d121e] border-[#172033] space-y-3.5">
+      <div id="settingsCardContainer" class="card p-4 bg-[#0d121e] border-[#172033] space-y-3.5 relative">
+        <!-- Locked Mode Overlay notice if not Admin -->
+        <div id="settingsLockedNotice" class="hidden p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5">
+            <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400 shrink-0"></i>
+            <span>Ajustes bloqueados en Modo Visual.</span>
+          </div>
+          <button onclick="openPinModal()" type="button" class="font-bold underline hover:text-white shrink-0">
+            Desbloquear
+          </button>
+        </div>
+
         <!-- DeepSeek API Key -->
         <div>
           <label class="text-[11px] font-bold text-[#00f2fe] block mb-1">Clave de API DeepSeek (IA)</label>
@@ -384,7 +442,7 @@
         </div>
 
         <!-- Save Button -->
-        <button onclick="saveSettings()" class="btn-primary w-full py-2.5 text-xs font-extrabold uppercase mt-2">
+        <button id="btnSaveSettings" onclick="saveSettings()" class="btn-primary w-full py-2.5 text-xs font-extrabold uppercase mt-2">
           Guardar Configuración
         </button>
       </div>
@@ -395,7 +453,7 @@
           <h4 class="text-xs font-bold text-[#ff4d6d]">Reiniciar Billetera</h4>
           <p class="text-[10px] text-[#8899a6]">Restaura el balance a $1,000 USDT</p>
         </div>
-        <button onclick="resetPaperWallet()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#ff4d6d]/20 text-[#ff4d6d] hover:bg-[#ff4d6d] hover:text-white transition-all">
+        <button id="btnResetWallet" onclick="resetPaperWallet()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#ff4d6d]/20 text-[#ff4d6d] hover:bg-[#ff4d6d] hover:text-white transition-all">
           Reiniciar
         </button>
       </div>
@@ -424,6 +482,109 @@
       <span>Ajustes</span>
     </button>
   </nav>
+
+  <!-- ============================================================== -->
+  <!-- PIN ENTRY MODAL (FINTECH / BANKING STYLE NUMERIC KEYPAD) -->
+  <!-- ============================================================== -->
+  <div id="pinModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden opacity-0 transition-opacity duration-200">
+    <div id="pinModalCard" class="card w-full max-w-xs p-5 bg-[#0d121e] border-[#1c263c] shadow-2xl space-y-4 text-center transform scale-95 transition-transform duration-200">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between">
+        <div class="w-7"></div>
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#00f2fe]/20 to-[#00f59b]/20 border border-[#00f2fe]/40 flex items-center justify-center mx-auto shadow-[0_0_15px_rgba(0,242,254,0.2)]">
+          <i data-lucide="lock" class="w-5 h-5 text-[#00f2fe]"></i>
+        </div>
+        <button onclick="closePinModal()" type="button" class="w-7 h-7 rounded-lg text-[#8899a6] hover:text-white hover:bg-[#1a2336] flex items-center justify-center transition-all">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div>
+        <h3 class="text-sm font-extrabold text-white">Acceso Administrador</h3>
+        <p class="text-[11px] text-[#8899a6] mt-0.5">Ingresa tu PIN de 4 dígitos para operar y cambiar ajustes</p>
+      </div>
+
+      <!-- PIN Slots / Indicators -->
+      <div class="flex items-center justify-center gap-3 py-2">
+        <div class="pin-slot" id="pin-slot-0"></div>
+        <div class="pin-slot" id="pin-slot-1"></div>
+        <div class="pin-slot" id="pin-slot-2"></div>
+        <div class="pin-slot" id="pin-slot-3"></div>
+      </div>
+
+      <!-- Hidden Physical Keyboard Input for Desktop users -->
+      <input type="password" id="hiddenPinInput" inputmode="numeric" maxlength="8" class="sr-only" autofocus>
+
+      <!-- Feedback Error Message -->
+      <div id="pinErrorMessage" class="text-xs font-bold text-[#ff4d6d] h-4 transition-all"></div>
+
+      <!-- Numeric Tactile Keypad -->
+      <div class="grid grid-cols-3 gap-2 pt-1 font-mono">
+        <button type="button" onclick="handlePinKey('1')" class="pin-key">1</button>
+        <button type="button" onclick="handlePinKey('2')" class="pin-key">2</button>
+        <button type="button" onclick="handlePinKey('3')" class="pin-key">3</button>
+        <button type="button" onclick="handlePinKey('4')" class="pin-key">4</button>
+        <button type="button" onclick="handlePinKey('5')" class="pin-key">5</button>
+        <button type="button" onclick="handlePinKey('6')" class="pin-key">6</button>
+        <button type="button" onclick="handlePinKey('7')" class="pin-key">7</button>
+        <button type="button" onclick="handlePinKey('8')" class="pin-key">8</button>
+        <button type="button" onclick="handlePinKey('9')" class="pin-key">9</button>
+        <button type="button" onclick="handlePinClear()" class="pin-key text-[11px] font-sans text-[#8899a6]">C</button>
+        <button type="button" onclick="handlePinKey('0')" class="pin-key">0</button>
+        <button type="button" onclick="handlePinBackspace()" class="pin-key text-[#8899a6]">⌫</button>
+      </div>
+
+      <!-- Visual Mode / Guest Button -->
+      <div class="pt-2 border-t border-[#172033]">
+        <button onclick="continueAsVisualMode()" type="button" class="w-full py-2 rounded-xl text-xs font-bold text-[#8899a6] hover:text-[#00f2fe] hover:bg-[#121929] transition-all flex items-center justify-center gap-1.5">
+          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+          <span>Continuar en Modo Visual (Solo Lectura)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- CHANGE PIN MODAL -->
+  <!-- ============================================================== -->
+  <div id="changePinModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden opacity-0 transition-opacity duration-200">
+    <div id="changePinModalCard" class="card w-full max-w-xs p-5 bg-[#0d121e] border-[#1c263c] shadow-2xl space-y-3.5 text-left transform scale-95 transition-transform duration-200">
+      
+      <div class="flex items-center justify-between border-b border-[#172033] pb-2.5">
+        <div class="flex items-center gap-2">
+          <i data-lucide="key" class="w-4 h-4 text-[#00f2fe]"></i>
+          <h3 class="text-xs font-extrabold text-white">Cambiar PIN de Seguridad</h3>
+        </div>
+        <button onclick="closeChangePinModal()" type="button" class="w-6 h-6 rounded-lg text-[#8899a6] hover:text-white flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2.5">
+        <div>
+          <label class="text-[10px] font-bold text-[#8899a6] block mb-1">PIN Actual</label>
+          <input type="password" id="inputCurrentPin" inputmode="numeric" placeholder="••••" maxlength="8" class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-3 py-2 text-xs text-white font-mono text-center tracking-widest focus:border-[#00f2fe] focus:outline-none">
+        </div>
+
+        <div>
+          <label class="text-[10px] font-bold text-[#00f2fe] block mb-1">Nuevo PIN (4-8 dígitos)</label>
+          <input type="password" id="inputNewPin" inputmode="numeric" placeholder="••••" maxlength="8" class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-3 py-2 text-xs text-white font-mono text-center tracking-widest focus:border-[#00f2fe] focus:outline-none">
+        </div>
+
+        <div>
+          <label class="text-[10px] font-bold text-[#8899a6] block mb-1">Confirmar Nuevo PIN</label>
+          <input type="password" id="inputConfirmNewPin" inputmode="numeric" placeholder="••••" maxlength="8" class="w-full bg-[#07090e] border border-[#172033] rounded-xl px-3 py-2 text-xs text-white font-mono text-center tracking-widest focus:border-[#00f2fe] focus:outline-none">
+        </div>
+
+        <div id="changePinError" class="text-[11px] font-bold text-[#ff4d6d] min-h-[16px]"></div>
+
+        <button onclick="submitChangePin()" type="button" class="btn-primary w-full py-2.5 text-xs font-extrabold uppercase mt-1">
+          Actualizar PIN
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="fixed bottom-20 right-3 left-3 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none max-w-sm"></div>

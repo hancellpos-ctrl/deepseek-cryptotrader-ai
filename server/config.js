@@ -29,7 +29,9 @@ const defaultConfig = {
   takeProfitPercent: 1.5, // 1.5% de ganancia real sobre tu dinero
   stopLossPercent: 0.8, // 0.8% de stop loss protector
   paperInitialBalance: 1000.0,
-  soundAlerts: true
+  soundAlerts: true,
+  securityPin: process.env.SECURITY_PIN || '1234', // PIN numérico para acceso administrador (por defecto 1234)
+  pinEnabled: true // Control de acceso con doble rol: Admin (con PIN) vs Solo Lectura / Visual (sin PIN)
 };
 
 function ensureDataDir() {
@@ -86,6 +88,9 @@ function getSafeConfig() {
   if (safe.telegramBotToken) {
     safe.hasTelegramToken = true;
   }
+  safe.hasSecurityPin = Boolean(safe.securityPin);
+  safe.pinEnabled = safe.pinEnabled !== false;
+  delete safe.securityPin; // Nunca enviar el PIN en texto plano
   return safe;
 }
 

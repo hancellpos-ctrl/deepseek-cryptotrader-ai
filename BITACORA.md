@@ -141,7 +141,16 @@
   - Cada registro cerrado muestra en el historial el desglose transparente: `Comisión Binance: -$0.15`.
 * **Eliminación Total de Alertas de "No hay margen":**
   - Se estableció una guardia estricta de capital: el bot no intenta llamar a `openPosition` ni genera mensajes de error cuando el capital está asignado al 100%.
-  - Se silenciaron todos los registros innecesarios de margen, manteniendo el panel de control y la consola completamente limpios mientras el bot espera los Take Profits para rotar el capital.
+### 🔹 Fase 19: Sistema de Seguridad por PIN y Acceso Visual / Solo Lectura (Doble Rol)
+* **Requerimiento:** Permitir que cualquiera pueda ver el dashboard en tiempo real (modo visual/espectador) sin poder alterar nada, reservando el control operativo y de configuración únicamente al Administrador mediante PIN de seguridad.
+* **Solución Implementada:**
+  1. **Doble Rol de Usuario:**
+     - **Modo Administrador (con PIN):** Control total para abrir o cerrar posiciones manualmente, encender o apagar Auto-IA, modificar parámetros de riesgo/apalancamiento/claves API y reiniciar billetera. PIN numérico de 4 a 8 dígitos (por defecto `1234` o personalizable en Ajustes).
+     - **Modo Visual / Solo Lectura (Sin PIN):** Permite ver en tiempo real el balance, equity, PnL flotante, señales en vivo de DeepSeek, historial de trades y gráficos sin posibilidad de tocar ni modificar nada.
+  2. **Teclado Táctil FinTech & Modal de Desbloqueo:** Modal flotante con teclado numérico táctil optimizado para smartphones y soporte directo de teclado físico en PC, con slots animados y retroalimentación auditiva/háptica.
+  3. **Banner y Controles Adaptativos:** Banner superior informativo en modo Solo Lectura, badges interactivos (`👁️ Modo Visual` / `🔓 Admin`) y bloqueo automático de botones y campos en el panel de Ajustes.
+  4. **Protección Middleware en Backend (`server/server.js`):** Middleware `requireAdminPin` que valida el PIN mediante el encabezado `x-admin-pin`. Si una petición no autorizada intenta mutar la configuración o cerrar/abrir trades, el servidor rechaza la solicitud con `HTTP 403 Forbidden`.
+  5. **Endpoints Seguros:** Creación de `POST /api/auth/verify-pin` y `POST /api/auth/change-pin` para validación y cambio seguro de credenciales.
 
 ---
 
