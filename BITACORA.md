@@ -134,6 +134,15 @@
   2. **Modo Vigilancia Exclusiva de Salidas (0 Tokens y Cero Intentos Fallidos):** Si el margen libre está ocupado al 100%, el bot **NO busca nuevas monedas** para comprar. Se concentra al 100% en vigilar las posiciones activas para cobrar en Take Profit (+1.5%), activar Trailing Stop o ejecutar salidas protectoras.
   3. **Desbloqueo Automático:** En el milisegundo en que una operación toca Take Profit y se cierra, el capital vuelve al margen libre y el bot reanuda inmediatamente la búsqueda y apertura del siguiente trade ganador.
 
+### 🔹 Fase 18: Cálculo Exacto de Comisiones Binance & Silenciado Total de Avisos de Margen
+* **Descuento de Comisiones Binance (0.075% Entrada + 0.075% Salida):**
+  - Tanto en las operaciones en vivo (PnL flotante) como en el historial de operaciones cerradas, el motor deduce automáticamente la comisión de intercambio de Binance.
+  - Las ganancias mostradas son **100% netas y limpias** tras descontar las tarifas reales del exchange.
+  - Cada registro cerrado muestra en el historial el desglose transparente: `Comisión Binance: -$0.15`.
+* **Eliminación Total de Alertas de "No hay margen":**
+  - Se estableció una guardia estricta de capital: el bot no intenta llamar a `openPosition` ni genera mensajes de error cuando el capital está asignado al 100%.
+  - Se silenciaron todos los registros innecesarios de margen, manteniendo el panel de control y la consola completamente limpios mientras el bot espera los Take Profits para rotar el capital.
+
 ---
 
 ## 🌐 3. Mapa de Conexiones, Cuentas y Topología Cloud
