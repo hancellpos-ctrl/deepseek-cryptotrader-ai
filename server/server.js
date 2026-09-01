@@ -21,6 +21,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+app.get('/health', (req, res) => res.status(200).send('OK'));
+
 // Broadcast to all connected WebSockets
 function broadcast(type, data) {
   const message = JSON.stringify({ type, data, timestamp: Date.now() });
@@ -377,16 +379,20 @@ app.get('/api/logs', (req, res) => {
 });
 
 // Start Server
-const PORT = process.env.PORT || 3000;
-
 async function startServer() {
-  // Ensure DB and paperEngine state is 100% loaded and synchronized before starting network services
-  await paperEngine.ready();
+  try {
+    await Promise.race([
+      paperEngine.ready(),
+      new Promise(r => setTimeout(r, 3000))
+    ]);
+  } catch (e) {
+    console.warn('[Server] paperEngine ready warning:', e.message);
+  }
 
-  server.listen(PORT, () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`=======================================================`);
     console.log(`🚀 DeepSeek CryptoTrader AI (Binance Futures & Paper)`);
-    console.log(`📡 Servidor activo en: http://localhost:${PORT}`);
+    console.log(`📡 Servidor activo en: http://0.0.0.0:${PORT}`);
     console.log(`=======================================================`);
 
     // 1. Start global live price stream for all pairs in watchlist
