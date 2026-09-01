@@ -45,7 +45,11 @@ function loadConfig() {
     if (fs.existsSync(CONFIG_FILE)) {
       const data = fs.readFileSync(CONFIG_FILE, 'utf8');
       const loaded = JSON.parse(data);
-      return { ...defaultConfig, ...loaded };
+      const merged = { ...defaultConfig, ...loaded };
+      if (!merged.deepseekApiKey && process.env.DEEPSEEK_API_KEY) {
+        merged.deepseekApiKey = process.env.DEEPSEEK_API_KEY;
+      }
+      return merged;
     }
   } catch (err) {
     console.error('Error loading config file, using default:', err.message);

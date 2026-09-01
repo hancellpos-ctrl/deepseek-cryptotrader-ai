@@ -11,11 +11,13 @@ yarn-error.log*
 .env.staging
 
 # Local runtime data & wallet state
-data/*.json
-data/*.db
 data/*.db-journal
 data/*.db-wal
 data/*.db-shm
+!data/cryptotrader.db
+!data/paper_wallet.json
+!data/trade_history.json
+!data/config.json
 !data/.gitkeep
 
 # System & IDE files
