@@ -227,10 +227,11 @@ class AutoTrader {
       return;
     }
 
+    const marginAmount = (paperEngine.balance * (config.riskPerTradePercent || 10)) / 100;
     const availableMargin = paperEngine.getAccountSummary().availableMargin;
-    const requiredMargin = (paperEngine.balance * (config.riskPerTradePercent || 10)) / 100;
-    if (availableMargin < Math.min(requiredMargin * 0.8, 50)) {
-      // Waiting for open positions to close - no error throw
+
+    // Strict capital guard: If available margin cannot fund this trade, exit quietly without error
+    if (availableMargin < marginAmount) {
       return;
     }
 
@@ -240,9 +241,7 @@ class AutoTrader {
 
     if (config.tradingMode === 'real') {
       try {
-        const balance = 1000;
-        const margin = (balance * (config.riskPerTradePercent || 5)) / 100;
-        const totalUSDT = margin * leverage;
+        const totalUSDT = marginAmount * leverage;
         const quantity = (totalUSDT / entryPrice).toFixed(4);
 
         const realOrder = await executeRealBinanceOrder({
@@ -254,13 +253,12 @@ class AutoTrader {
           takeProfit: analysis.take_profit
         });
 
-        this.log(`✅ [REAL SPOT/1x] Orden ejecutada en Binance: $${margin} USDT en ${analysis.symbol}!`, 'success');
+        this.log(`✅ [REAL SPOT/1x] Orden ejecutada en Binance: $${marginAmount} USDT en ${analysis.symbol}!`, 'success');
       } catch (err) {
         this.log(`❌ [REAL] Error ejecutando orden: ${err.message}`, 'error');
       }
     } else {
       try {
-        const marginAmount = (paperEngine.balance * (config.riskPerTradePercent || 5)) / 100;
         const position = paperEngine.openPosition({
           symbol: analysis.symbol,
           side,
@@ -276,6 +274,10 @@ class AutoTrader {
         this.log(`🧪 [IA SPOT/1x] Invertidos $${position.margin} USDT (100% Dinero Propio) en ${analysis.symbol} @ $${entryPrice}.`, 'success');
         sendOrderOpenedAlert(position, 'paper').catch(e => console.error(e));
       } catch (err) {
+        if (err.message && err.message.toLowerCase().includes('margen')) {
+          // Suppress margin error - waiting for trade closures
+          return;
+        }
         this.log(`❌ Error abriendo posición: ${err.message}`, 'error');
       }
     }

@@ -410,15 +410,21 @@ class PaperTradingEngine {
       if (pos.symbol === symbol) {
         pos.currentPrice = formatPricePrecision(markPrice);
 
-        let pnl = 0;
+        let grossPnl = 0;
         if (pos.side === 'LONG') {
-          pnl = (markPrice - pos.entryPrice) * pos.quantity;
+          grossPnl = (markPrice - pos.entryPrice) * pos.quantity;
         } else {
-          pnl = (pos.entryPrice - markPrice) * pos.quantity;
+          grossPnl = (pos.entryPrice - markPrice) * pos.quantity;
         }
 
-        pos.unrealizedPnL = Number(pnl.toFixed(2));
-        pos.unrealizedRoePercent = Number(((pnl / pos.margin) * 100).toFixed(2));
+        // Exact Binance trading fee (0.075% on entry + 0.075% on mark price)
+        const entryFee = pos.entryPrice * pos.quantity * 0.00075;
+        const exitFee = markPrice * pos.quantity * 0.00075;
+        const totalEstimatedFee = entryFee + exitFee;
+        const netPnl = grossPnl - totalEstimatedFee;
+
+        pos.unrealizedPnL = Number(netPnl.toFixed(2));
+        pos.unrealizedRoePercent = Number(((netPnl / pos.margin) * 100).toFixed(2));
         stateChanged = true;
 
         // Trailing Stop (al ganar >= $1.50 con dinero propio, proteger con Stop Loss al precio de entrada)
@@ -477,20 +483,23 @@ class PaperTradingEngine {
     const pos = this.positions[index];
     const finalPrice = (exitPrice && exitPrice > 0) ? exitPrice : pos.currentPrice;
 
-    let realizedPnL = 0;
+    let grossRealizedPnL = 0;
     if (closeReason === 'LIQUIDATION') {
-      realizedPnL = -pos.margin;
+      grossRealizedPnL = -pos.margin;
     } else {
       if (pos.side === 'LONG') {
-        realizedPnL = (finalPrice - pos.entryPrice) * pos.quantity;
+        grossRealizedPnL = (finalPrice - pos.entryPrice) * pos.quantity;
       } else {
-        realizedPnL = (pos.entryPrice - finalPrice) * pos.quantity;
+        grossRealizedPnL = (pos.entryPrice - finalPrice) * pos.quantity;
       }
     }
 
-    // Spot standard 0.05% trading fee
-    const totalTradingFee = (pos.positionValue * 2) * 0.0005;
-    realizedPnL = Number((realizedPnL - totalTradingFee).toFixed(2));
+    // Exact Binance trading fee (0.075% on entry + 0.075% on exit)
+    const entryFee = Number((pos.entryPrice * pos.quantity * 0.00075).toFixed(4));
+    const exitFee = Number((finalPrice * pos.quantity * 0.00075).toFixed(4));
+    const totalTradingFee = Number((entryFee + exitFee).toFixed(4));
+
+    const realizedPnL = Number((grossRealizedPnL - totalTradingFee).toFixed(2));
     const roiPercent = Number(((realizedPnL / pos.margin) * 100).toFixed(2));
 
     this.balance += realizedPnL;
@@ -508,8 +517,9 @@ class PaperTradingEngine {
       takeProfit: pos.takeProfit,
       stopLoss: pos.stopLoss,
       realizedPnL,
+      grossPnL: Number(grossRealizedPnL.toFixed(2)),
+      fee: totalTradingFee,
       roiPercent,
-      fee: Number(totalTradingFee.toFixed(2)),
       closeReason,
       openTime: pos.openTime,
       closeTime: new Date().toISOString(),

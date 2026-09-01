@@ -773,6 +773,7 @@ function renderHistory() {
             ${sign}$${t.realizedPnL.toFixed(2)} USDT
           </span>
           <span class="text-[9px] text-[#8899a6] block">${reasonLabel}</span>
+          ${t.fee ? `<span class="text-[8px] text-[#6b7c93] block font-mono">Comisión Binance: -$${Number(t.fee).toFixed(2)}</span>` : ''}
         </div>
       </div>
     `;
