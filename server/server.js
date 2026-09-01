@@ -391,7 +391,7 @@ async function startServer() {
 
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`=======================================================`);
-    console.log(`🚀 DeepSeek CryptoTrader AI (Binance Futures & Paper)`);
+    console.log(`🚀 WP Trader AI (Binance Spot & Futures)`);
     console.log(`📡 Servidor activo en: http://0.0.0.0:${PORT}`);
     console.log(`=======================================================`);
 

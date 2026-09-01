@@ -1,7 +1,7 @@
-﻿{
-  "name": "DeepSeek CryptoTrader AI",
-  "short_name": "CryptoTrader",
-  "description": "Plataforma de trading autónomo de futuros con DeepSeek AI y Binance",
+{
+  "name": "WP Trader",
+  "short_name": "WP",
+  "description": "Trading autónomo con DeepSeek AI y Binance",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0d14",
