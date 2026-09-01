@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CryptoTrader AI - 4 Module Mobile Web App & PWA
  */
 
@@ -74,6 +74,18 @@ function navigateToTab(tabId) {
   const activeBtn = document.getElementById(tabMap[tabId]);
   if (activeBtn) activeBtn.classList.add('active');
 
+  if (tabId === 'view-history') {
+    renderHistory();
+  } else if (tabId === 'view-trades') {
+    renderPositions();
+    renderWallet();
+  } else if (tabId === 'view-alerts') {
+    renderAiAlertCard();
+    renderLogs();
+  } else if (tabId === 'view-settings') {
+    renderConfig();
+  }
+
   if (window.lucide) lucide.createIcons();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -134,7 +146,11 @@ function initWebSocket() {
 
   ws = new WebSocket(wsUrl);
 
-  ws.onopen = () => updateConnectionStatus(true);
+  ws.onopen = () => {
+    updateConnectionStatus(true);
+    fetchInitialData();
+    fetchMarketData();
+  };
   ws.onclose = () => {
     updateConnectionStatus(false);
     setTimeout(initWebSocket, 2000);
@@ -168,6 +184,12 @@ function handleWebSocketMessage(msg) {
       handlePricesTick(data);
       break;
 
+    case 'PRICE_TICK':
+      if (data && data.symbol && data.price) {
+        handlePricesTick({ [data.symbol]: data.price });
+      }
+      break;
+
     case 'WALLET_UPDATE':
       state.wallet = data;
       renderWallet();
@@ -178,6 +200,9 @@ function handleWebSocketMessage(msg) {
     case 'AI_ANALYSIS_RESULT':
       state.latestAiSignal = data;
       renderAiAlertCard();
+      if (data && data.signal !== 'HOLD' && data.confidence >= 68) {
+        playNotificationSound('signal');
+      }
       break;
 
     case 'AUTO_TRADER_LOG':
@@ -187,13 +212,16 @@ function handleWebSocketMessage(msg) {
       break;
 
     case 'POSITION_OPENED':
+      playNotificationSound('open');
       showToast(`⚡ IA Invirtió: $${data.margin} USDT en ${data.symbol} @ $${formatPrice(data.entryPrice)}`, 'info');
       break;
 
     case 'POSITION_CLOSED':
       if (data.realizedPnL >= 0) {
+        playNotificationSound('profit');
         showToast(`🎯 ¡Ganancia lograda! +$${data.realizedPnL} USDT en ${data.symbol}`, 'success');
       } else {
+        playNotificationSound('loss');
         showToast(`🛑 Cierre preventivo: -$${Math.abs(data.realizedPnL)} USDT en ${data.symbol}`, 'danger');
       }
       break;
@@ -207,13 +235,14 @@ function handleWebSocketMessage(msg) {
 }
 
 function handlePricesTick(priceMap) {
+  if (!priceMap || typeof priceMap !== 'object') return;
   state.prices = { ...state.prices, ...priceMap };
 
   if (state.wallet.positions && state.wallet.positions.length > 0) {
     let changed = false;
     state.wallet.positions.forEach(pos => {
       const currentPrice = state.prices[pos.symbol];
-      if (currentPrice && currentPrice !== pos.currentPrice) {
+      if (currentPrice && typeof currentPrice === 'number' && !isNaN(currentPrice) && currentPrice > 0 && currentPrice !== pos.currentPrice) {
         pos.currentPrice = currentPrice;
         let pnl = pos.side === 'LONG'
           ? (currentPrice - pos.entryPrice) * pos.quantity
@@ -519,21 +548,25 @@ function renderPositions() {
           </span>
         </div>
 
-        <div class="grid grid-cols-2 gap-1.5 text-[11px] font-mono bg-[#07090e] p-2 rounded-xl border border-[#141b2b] mb-2.5">
+        <div class="grid grid-cols-2 gap-1.5 text-[11px] font-mono bg-[#07090e] p-2.5 rounded-xl border border-[#141b2b] mb-2.5">
           <div class="flex justify-between">
-            <span class="text-[#6b7c93]">Inversión Real:</span>
+            <span class="text-[#6b7c93]">Tu Dinero (Margen):</span>
             <span class="text-white font-bold">$${pos.margin} USDT</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-[#6b7c93]">Cantidad Cripto:</span>
+            <span class="text-[#6b7c93]">Tamaño Mercado:</span>
+            <span class="text-[#00f2fe] font-bold">$${pos.positionValue || Number((pos.margin * (pos.leverage || 1)).toFixed(2))} USDT</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-[#6b7c93]">Cantidad Real:</span>
             <span class="text-white font-bold">${pos.quantity} ${cleanSym}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-[#6b7c93]">Entrada:</span>
+            <span class="text-[#6b7c93]">Precio Entrada:</span>
             <span class="text-white font-bold">$${formatPrice(pos.entryPrice)}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-[#6b7c93]">Actual:</span>
+            <span class="text-[#6b7c93]">Precio Actual:</span>
             <span class="text-white font-bold">$${formatPrice(pos.currentPrice)}</span>
           </div>
           <div class="flex justify-between">
@@ -547,7 +580,7 @@ function renderPositions() {
         </div>
 
         <div class="flex items-center justify-between">
-          <span class="text-[10px] text-[#00f2fe] font-mono font-bold">100% Capital Propio</span>
+          <span class="text-[10px] text-[#8899a6] font-mono">Poder de compra: <b class="text-[#00f2fe]">${levText}</b></span>
           <button onclick="closePosition('${pos.id}')" class="px-3 py-1 rounded-lg text-xs font-bold bg-[#ff4d6d]/15 text-[#ff4d6d] hover:bg-[#ff4d6d] hover:text-white transition-all">
             Cerrar Posición
           </button>
@@ -666,15 +699,25 @@ function renderHistory() {
     const cleanSym = t.symbol.replace('USDT', '').replace('1000', '');
     const levText = (t.leverage && t.leverage > 1) ? `${t.leverage}x` : '1x Dinero Propio';
 
+    const closeDate = t.closeTime ? new Date(t.closeTime) : (t.closed_at ? new Date(t.closed_at) : new Date());
+    const timeFormatted = isNaN(closeDate.getTime()) ? '' : closeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const dateFormatted = isNaN(closeDate.getTime()) ? '' : closeDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+    let reasonLabel = t.closeReason || 'Cierre';
+    if (reasonLabel.includes('TAKE_PROFIT')) reasonLabel = '🎯 Take Profit';
+    else if (reasonLabel.includes('TRAILING_STOP')) reasonLabel = '🛡️ Trailing Stop';
+    else if (reasonLabel.includes('STOP_LOSS')) reasonLabel = '🛑 Stop Loss';
+    else if (reasonLabel.includes('DECISIÓN_IA')) reasonLabel = '🤖 Decisión IA';
+
     return `
-      <div class="bg-[#0b0f19] p-3 rounded-xl border border-[#141b2b] flex items-center justify-between">
+      <div class="bg-[#0b0f19] p-3 rounded-xl border border-[#141b2b] flex items-center justify-between shadow-sm">
         <div>
           <div class="flex items-center gap-1.5 mb-1">
             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${t.side === 'LONG' ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">
               ${t.side} • ${levText}
             </span>
             <h4 class="text-xs font-bold text-white">${cleanSym}</h4>
-            <span class="text-[10px] text-[#6b7c93]">• ${t.durationSeconds || 0}s</span>
+            <span class="text-[10px] text-[#6b7c93] font-mono">• ${timeFormatted || (t.durationSeconds + 's')}</span>
           </div>
           <p class="text-[10px] text-[#6b7c93] font-mono">
             Inv: $${t.margin} USDT | $${formatPrice(t.entryPrice)} ➔ $${formatPrice(t.exitPrice)}
@@ -685,7 +728,7 @@ function renderHistory() {
           <span class="font-mono text-xs font-black ${isWin ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
             ${sign}$${t.realizedPnL.toFixed(2)} USDT
           </span>
-          <span class="text-[9px] text-[#6b7c93] block">${t.closeReason || 'Cierre'}</span>
+          <span class="text-[9px] text-[#8899a6] block">${reasonLabel}</span>
         </div>
       </div>
     `;
@@ -713,10 +756,10 @@ function renderConfig() {
   if (inputTarget) inputTarget.value = cfg.globalProfitGoalUSDT || 10.0;
 
   const inputRisk = document.getElementById('inputRiskPercent');
-  if (inputRisk) inputRisk.value = cfg.riskPerTradePercent || 5;
+  if (inputRisk) inputRisk.value = cfg.riskPerTradePercent !== undefined ? cfg.riskPerTradePercent : 10;
 
   const inputMaxPos = document.getElementById('inputMaxPositions');
-  if (inputMaxPos) inputMaxPos.value = cfg.maxOpenPositions || 6;
+  if (inputMaxPos) inputMaxPos.value = cfg.maxOpenPositions !== undefined ? cfg.maxOpenPositions : 50;
 
   const inputTgToken = document.getElementById('inputTelegramToken');
   if (inputTgToken) inputTgToken.value = cfg.telegramBotToken || '';
@@ -726,6 +769,9 @@ function renderConfig() {
 
   const checkTg = document.getElementById('checkboxTelegramEnabled');
   if (checkTg) checkTg.checked = cfg.telegramEnabled || false;
+
+  const checkSound = document.getElementById('checkboxSoundAlerts');
+  if (checkSound) checkSound.checked = cfg.soundAlerts !== false;
 }
 
 function updateConnectionStatus(connected) {
@@ -741,11 +787,12 @@ async function saveSettings() {
     scanMode: document.getElementById('selectScanMode').value,
     defaultLeverage: parseInt(document.getElementById('selectLeverage').value, 10) || 1,
     globalProfitGoalUSDT: parseFloat(document.getElementById('inputTargetProfit').value) || 10.0,
-    riskPerTradePercent: parseFloat(document.getElementById('inputRiskPercent').value) || 5,
-    maxOpenPositions: parseInt(document.getElementById('inputMaxPositions').value, 10) || 6,
+    riskPerTradePercent: parseFloat(document.getElementById('inputRiskPercent').value) || 10,
+    maxOpenPositions: parseInt(document.getElementById('inputMaxPositions').value, 10) || 50,
     telegramToken: document.getElementById('inputTelegramToken').value,
     telegramChatId: document.getElementById('inputTelegramChatId').value,
-    telegramEnabled: document.getElementById('checkboxTelegramEnabled').checked
+    telegramEnabled: document.getElementById('checkboxTelegramEnabled').checked,
+    soundAlerts: document.getElementById('checkboxSoundAlerts')?.checked ?? true
   };
 
   const dsKey = document.getElementById('inputDeepSeekKey').value.trim();
@@ -788,6 +835,91 @@ async function testTelegram() {
   } catch (e) {
     showToast('Error: ' + e.message, 'danger');
   }
+}
+
+// ----------------------------------------------------
+// AUDIO SYNTHESIZER (WEB AUDIO API)
+// ----------------------------------------------------
+let audioCtx = null;
+
+function getAudioContext() {
+  if (!audioCtx) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+      audioCtx = new AudioContextClass();
+    }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+  return audioCtx;
+}
+
+// Unlock audio on first user gesture anywhere on screen
+['click', 'touchstart', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    getAudioContext();
+  }, { once: false, passive: true });
+});
+
+function playNotificationSound(type = 'info') {
+  const soundEnabled = document.getElementById('checkboxSoundAlerts')?.checked ?? (state.config.soundAlerts !== false);
+  if (!soundEnabled) return;
+
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'profit' || type === 'success') {
+      // Ascending triumphant chime (D5 -> A5 -> D6)
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.frequency.exponentialRampToValueAtTime(880.00, now + 0.12);
+      osc.frequency.exponentialRampToValueAtTime(1174.66, now + 0.28);
+
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+      osc.start(now);
+      osc.stop(now + 0.45);
+    } else if (type === 'open' || type === 'signal' || type === 'info') {
+      // Futuristic double-ping
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, now); // C5
+      osc.frequency.setValueAtTime(783.99, now + 0.09); // G5
+
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+      osc.start(now);
+      osc.stop(now + 0.3);
+    } else if (type === 'loss' || type === 'danger' || type === 'warning') {
+      // Low caution tone
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(349.23, now);
+      osc.frequency.exponentialRampToValueAtTime(261.63, now + 0.2);
+
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+      osc.start(now);
+      osc.stop(now + 0.35);
+    }
+  } catch (err) {
+    console.warn('[Audio] Note playing sound:', err.message);
+  }
+}
+
+function testSoundAlert() {
+  getAudioContext();
+  playNotificationSound('profit');
+  showToast('🔔 ¡Sonido de alerta probado con éxito!', 'success');
 }
 
 // ----------------------------------------------------

@@ -17,13 +17,13 @@ const defaultConfig = {
   autoPilot: true,
   autoPilotIntervalMinutes: 1,
   globalProfitGoalUSDT: 10.0, // Meta TOTAL acumulada: +$10.00 USD
-  maxOpenPositions: 6, // Máximo 6 operaciones simultáneas (configurable en Ajustes)
+  maxOpenPositions: 50, // Sin límite restrictivo (configurable en Ajustes hasta 100)
   scanMode: 'all', // 'all' (Criptos + Acciones TradFi) | 'top_trending' | 'popular'
   tradingPairs: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT', 'XRPUSDT', '1000PEPEUSDT'],
   activePair: 'BTCUSDT',
   timeframe: '15m',
   minConfidenceToTrade: 68,
-  riskPerTradePercent: 5, // 5% de tu capital ($50 USDT de tu dinero propio por trade)
+  riskPerTradePercent: 10, // 10% de tu capital ($100 USDT de tu dinero propio por trade)
   defaultLeverage: 1, // 1x = 100% Dinero Propio (Sin Apalancamiento / Modo Spot Seguro)
   maxLeverage: 1,
   takeProfitPercent: 1.5, // 1.5% de ganancia real sobre tu dinero

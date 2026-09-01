@@ -1,4 +1,4 @@
-﻿const sqlite3 = require('sqlite3').verbose();
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
@@ -14,79 +14,6 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
   } else {
     console.log('[DB] SQLite database connected at:', DB_PATH);
   }
-});
-
-// Initialize Tables
-db.serialize(() => {
-  // 1. Wallet state
-  db.run(`
-    CREATE TABLE IF NOT EXISTS wallet (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      balance REAL NOT NULL DEFAULT 1000.0,
-      initial_balance REAL NOT NULL DEFAULT 1000.0,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Insert initial wallet row if not exists
-  db.run(`
-    INSERT OR IGNORE INTO wallet (id, balance, initial_balance)
-    VALUES (1, 1000.0, 1000.0)
-  `);
-
-  // 2. Active Positions
-  db.run(`
-    CREATE TABLE IF NOT EXISTS positions (
-      id TEXT PRIMARY KEY,
-      symbol TEXT NOT NULL,
-      side TEXT NOT NULL,
-      leverage INTEGER NOT NULL,
-      margin REAL NOT NULL,
-      quantity REAL NOT NULL,
-      entry_price REAL NOT NULL,
-      current_price REAL NOT NULL,
-      take_profit REAL,
-      stop_loss REAL,
-      trailing_stop_active INTEGER DEFAULT 0,
-      highest_price REAL,
-      lowest_price REAL,
-      ai_reason TEXT,
-      opened_at INTEGER NOT NULL,
-      status TEXT DEFAULT 'OPEN'
-    )
-  `);
-
-  // 3. Trade History
-  db.run(`
-    CREATE TABLE IF NOT EXISTS trade_history (
-      id TEXT PRIMARY KEY,
-      symbol TEXT NOT NULL,
-      side TEXT NOT NULL,
-      leverage INTEGER NOT NULL,
-      margin REAL NOT NULL,
-      quantity REAL NOT NULL,
-      entry_price REAL NOT NULL,
-      exit_price REAL NOT NULL,
-      realized_pnl REAL NOT NULL,
-      roi_percent REAL NOT NULL,
-      close_reason TEXT,
-      ai_reason TEXT,
-      opened_at INTEGER NOT NULL,
-      closed_at INTEGER NOT NULL,
-      duration_seconds INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // 4. System & AI Logs
-  db.run(`
-    CREATE TABLE IF NOT EXISTS system_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type TEXT DEFAULT 'info',
-      message TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
 });
 
 // Helper promises
@@ -117,7 +44,107 @@ const dbAsync = {
   }
 };
 
+let initPromise = null;
+
+function initDb() {
+  if (initPromise) return initPromise;
+
+  initPromise = new Promise((resolve, reject) => {
+    db.serialize(async () => {
+      try {
+        // WAL mode for high concurrency, durability and speed on Windows
+        await dbAsync.run('PRAGMA journal_mode = WAL;');
+        await dbAsync.run('PRAGMA synchronous = NORMAL;');
+        await dbAsync.run('PRAGMA busy_timeout = 5000;');
+
+        // 1. Wallet state
+        await dbAsync.run(`
+          CREATE TABLE IF NOT EXISTS wallet (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            balance REAL NOT NULL DEFAULT 1000.0,
+            initial_balance REAL NOT NULL DEFAULT 1000.0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+
+        await dbAsync.run(`
+          INSERT OR IGNORE INTO wallet (id, balance, initial_balance)
+          VALUES (1, 1000.0, 1000.0)
+        `);
+
+        // 2. Active Positions
+        await dbAsync.run(`
+          CREATE TABLE IF NOT EXISTS positions (
+            id TEXT PRIMARY KEY,
+            symbol TEXT NOT NULL,
+            side TEXT NOT NULL,
+            leverage INTEGER NOT NULL,
+            margin REAL NOT NULL,
+            quantity REAL NOT NULL,
+            entry_price REAL NOT NULL,
+            current_price REAL NOT NULL,
+            take_profit REAL,
+            stop_loss REAL,
+            trailing_stop_active INTEGER DEFAULT 0,
+            highest_price REAL,
+            lowest_price REAL,
+            ai_reason TEXT,
+            opened_at INTEGER NOT NULL,
+            status TEXT DEFAULT 'OPEN'
+          )
+        `);
+
+        await dbAsync.run(`CREATE INDEX IF NOT EXISTS idx_positions_status ON positions(status)`);
+
+        // 3. Trade History
+        await dbAsync.run(`
+          CREATE TABLE IF NOT EXISTS trade_history (
+            id TEXT PRIMARY KEY,
+            symbol TEXT NOT NULL,
+            side TEXT NOT NULL,
+            leverage INTEGER NOT NULL,
+            margin REAL NOT NULL,
+            quantity REAL NOT NULL,
+            entry_price REAL NOT NULL,
+            exit_price REAL NOT NULL,
+            realized_pnl REAL NOT NULL,
+            roi_percent REAL NOT NULL,
+            close_reason TEXT,
+            ai_reason TEXT,
+            opened_at INTEGER NOT NULL,
+            closed_at INTEGER NOT NULL,
+            duration_seconds INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+
+        await dbAsync.run(`CREATE INDEX IF NOT EXISTS idx_history_closed ON trade_history(closed_at DESC)`);
+
+        // 4. System & AI Logs
+        await dbAsync.run(`
+          CREATE TABLE IF NOT EXISTS system_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT DEFAULT 'info',
+            message TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+
+        resolve();
+      } catch (err) {
+        console.error('[DB] Error during initDb:', err);
+        reject(err);
+      }
+    });
+  });
+
+  return initPromise;
+}
+
+initDb().catch(e => console.error('[DB] SQLite init error:', e));
+
 module.exports = {
   db,
-  dbAsync
+  dbAsync,
+  initDb
 };

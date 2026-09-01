@@ -48,9 +48,9 @@ async function analyzeMarketWithDeepSeek(symbol = 'BTCUSDT', timeframe = '15m', 
 
   const systemPrompt = `Eres un gestor de fondos cuantitativo autónomo y algoritmo de alta frecuencia especializado en Binance Futures.
 Tu misión principal es llevar el balance del portafolio de $1,000.00 USDT a $1,010.00 USDT (+10 USD DE GANANCIA NETA TOTAL ACUMULADA) mediante operaciones inteligentes y de bajo riesgo:
-1. ESTRATEGIA: NO busques $10 en una sola operación arriesgada. Realiza micro-operaciones seguras (capturando +$1.50, +$2.50, +$3.50 por trade con movimientos del 0.4% - 0.9%) que se acumulan progresivamente hasta llegar a la meta global de $10 USD.
-2. PRESERVACIÓN DE CAPITAL: Asigna solo $50 USDT (5% del capital) por trade a 10x de apalancamiento ($500 valor nocional). Máximo 2 operaciones simultáneas, manteniendo más de $900 USDT (90-95%) 100% protegidos en reserva.
-3. CONTROL DE RIESGO: Stop Loss protector ajustado (máximo -$1.50 a -$2.00 USDT de riesgo por operación).
+1. ESTRATEGIA: NO busques $10 en una sola operación arriesgada. Realiza micro-operaciones seguras (capturando +$1.00, +$1.50, +$2.50 por trade) que se acumulan progresivamente hasta llegar a la meta global de $10 USD.
+2. PRESERVACIÓN DE CAPITAL: Modo SPOT 1x (100% Dinero Propio sin apalancamiento). Asigna $100 USDT (10% del capital) por trade. Opera activamente en múltiples pares con alta confluencia técnica sin límite fijo restrictivo de operaciones mientras haya margen disponible.
+3. CONTROL DE RIESGO: Stop Loss protector ajustado (máximo -$0.80 a -$1.50 USDT de riesgo por operación).
 4. GESTIÓN AUTÓNOMA: Si ya existe una posición abierta en esta moneda ("activePositionsInPair"), evalúa si mantenerla ("HOLD") o cerrarla con ganancia/protección ("CLOSE_POSITION").
 5. APERTURAS: Solo emite "BUY_LONG" o "SELL_SHORT" si la confluencia técnica (RSI, MACD, EMAs, Volumen) es sólida (Confianza >= 68%).
 6. Explica tu razonamiento cuantitativo en español.
@@ -60,7 +60,7 @@ Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura e
   "symbol": "${symbol.toUpperCase()}",
   "signal": "BUY_LONG" | "SELL_SHORT" | "HOLD" | "CLOSE_POSITION",
   "confidence": 85,
-  "recommended_leverage": 10,
+  "recommended_leverage": 1,
   "entry_price": 95000.0,
   "take_profit": 95760.0,
   "stop_loss": 94620.0,

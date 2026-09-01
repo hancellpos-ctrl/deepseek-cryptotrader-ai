@@ -162,9 +162,15 @@ class AutoTrader {
       return;
     }
 
-    const maxPositions = config.maxOpenPositions || 6;
-    if (openPositions.length >= maxPositions) {
-      this.log(`⚠️ Límite de ${maxPositions} operaciones simultáneas alcanzado. Esperando cierres para nuevas entradas.`, 'warning');
+    const maxPositions = (config.maxOpenPositions !== undefined && config.maxOpenPositions > 0) ? config.maxOpenPositions : 50;
+    if (maxPositions > 0 && openPositions.length >= maxPositions) {
+      this.log(`⚠️ Límite de ${maxPositions} operaciones simultáneas alcanzado.`, 'warning');
+      return;
+    }
+
+    const availableMargin = paperEngine.getAccountSummary().availableMargin;
+    if (availableMargin <= 10) {
+      this.log(`⚠️ Margen libre agotado ($${availableMargin} USDT). Esperando cierres de operaciones para nuevas compras.`, 'warning');
       return;
     }
 

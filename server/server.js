@@ -377,63 +377,81 @@ app.get('/api/logs', (req, res) => {
 
 // Start Server
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`=======================================================`);
-  console.log(`🚀 DeepSeek CryptoTrader AI (Binance Futures & Paper)`);
-  console.log(`📡 Servidor activo en: http://localhost:${PORT}`);
-  console.log(`=======================================================`);
 
-  // 1. Start global live price stream for all pairs in watchlist
-  initAllPricesStream((pricesMap) => {
-    let pnlChanged = false;
-    for (const [sym, price] of Object.entries(pricesMap)) {
-      if (paperEngine.updateMarketPrice(sym, price)) {
-        pnlChanged = true;
-      }
-    }
+async function startServer() {
+  // Ensure DB and paperEngine state is 100% loaded and synchronized before starting network services
+  await paperEngine.ready();
 
-    broadcast('ALL_PRICES_TICK', pricesMap);
+  server.listen(PORT, () => {
+    console.log(`=======================================================`);
+    console.log(`🚀 DeepSeek CryptoTrader AI (Binance Futures & Paper)`);
+    console.log(`📡 Servidor activo en: http://localhost:${PORT}`);
+    console.log(`=======================================================`);
 
-    if (pnlChanged) {
-      broadcast('WALLET_UPDATE', paperEngine.getAccountSummary());
-    }
-  });
-
-  // 2. Start Binance public WebSocket stream for default pair candles
-  startBinanceStreamForSymbol(currentActiveSymbol, currentActiveInterval);
-
-  // 3. Fallback high-speed poller (every 1s) to guarantee 100% price updates & instant TP/SL trigger
-  setInterval(async () => {
-    try {
-      const config = getConfig();
-      const openSymbols = paperEngine.positions.map(p => p.symbol);
-      const allTracked = Array.from(new Set([
-        ...config.tradingPairs,
-        ...openSymbols,
-        'MAGMAUSDT', 'SKRUSDT', 'HEMIUSDT',
-        'TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT', 'SPYUSDT', 'QQQUSDT', 'AMZNUSDT', 'METAUSDT', 'MSFTUSDT', 'COINUSDT', 'MSTRUSDT'
-      ]));
-
-      const prices = await fetchAllPrices(allTracked);
+    // 1. Start global live price stream for all pairs in watchlist
+    initAllPricesStream((pricesMap) => {
       let pnlChanged = false;
-
-      for (const [sym, price] of Object.entries(prices)) {
-        if (paperEngine.updateMarketPrice(sym, price)) {
-          pnlChanged = true;
+      for (const [sym, price] of Object.entries(pricesMap)) {
+        if (typeof price === 'number' && !isNaN(price) && price > 0) {
+          if (paperEngine.updateMarketPrice(sym, price)) {
+            pnlChanged = true;
+          }
         }
       }
 
-      broadcast('ALL_PRICES_TICK', prices);
+      broadcast('ALL_PRICES_TICK', pricesMap);
 
       if (pnlChanged) {
         broadcast('WALLET_UPDATE', paperEngine.getAccountSummary());
       }
-    } catch (e) {}
-  }, 1000);
+    });
 
-  // 4. Start auto-trader if configured
-  const cfg = getConfig();
-  if (cfg.autoPilot) {
-    autoTrader.start();
-  }
+    // 2. Start Binance public WebSocket stream for default pair candles
+    startBinanceStreamForSymbol(currentActiveSymbol, currentActiveInterval);
+
+    // 3. Fallback high-speed poller (every 1s) to guarantee 100% price updates & instant TP/SL trigger
+    setInterval(async () => {
+      try {
+        const config = getConfig();
+        const openSymbols = paperEngine.positions.map(p => p.symbol);
+        const allTracked = Array.from(new Set([
+          ...config.tradingPairs,
+          ...openSymbols,
+          'MAGMAUSDT', 'SKRUSDT', 'HEMIUSDT',
+          'TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT', 'SPYUSDT', 'QQQUSDT', 'AMZNUSDT', 'METAUSDT', 'MSFTUSDT', 'COINUSDT', 'MSTRUSDT'
+        ]));
+
+        const prices = await fetchAllPrices(allTracked);
+        let pnlChanged = false;
+
+        if (prices && typeof prices === 'object') {
+          for (const [sym, price] of Object.entries(prices)) {
+            if (typeof price === 'number' && !isNaN(price) && price > 0) {
+              if (paperEngine.updateMarketPrice(sym, price)) {
+                pnlChanged = true;
+              }
+            }
+          }
+
+          broadcast('ALL_PRICES_TICK', prices);
+
+          if (pnlChanged) {
+            broadcast('WALLET_UPDATE', paperEngine.getAccountSummary());
+          }
+        }
+      } catch (e) {
+        // Silently wait for network recovery if offline
+      }
+    }, 1000);
+
+    // 4. Start auto-trader if configured
+    const cfg = getConfig();
+    if (cfg.autoPilot) {
+      autoTrader.start();
+    }
+  });
+}
+
+startServer().catch(err => {
+  console.error('[Server] Fatal startup error:', err);
 });

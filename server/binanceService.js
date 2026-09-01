@@ -201,10 +201,17 @@ function initAllPricesStream(onAllPricesUpdate) {
 /**
  * Connect to Binance Public WebSocket for active symbol live candle & price stream
  */
+let klineReconnectTimeout = null;
+
 function connectBinanceStream(symbol, interval, onPriceUpdate, onCandleUpdate) {
   const formattedSymbol = symbol.toLowerCase();
   activeWsSymbol = symbol;
   activeWsInterval = interval;
+
+  if (klineReconnectTimeout) {
+    clearTimeout(klineReconnectTimeout);
+    klineReconnectTimeout = null;
+  }
 
   if (wsKlineClient) {
     try {
@@ -236,31 +243,33 @@ function connectBinanceStream(symbol, interval, onPriceUpdate, onCandleUpdate) {
       if (msg.e === 'kline') {
         const k = msg.k;
         const currentPrice = parseFloat(k.c);
-        currentPrices[symbol] = currentPrice;
+        if (currentPrice && !isNaN(currentPrice) && currentPrice > 0) {
+          currentPrices[symbol] = currentPrice;
 
-        if (onPriceUpdate) {
-          onPriceUpdate({
-            symbol: symbol,
-            price: currentPrice,
-            timestamp: msg.E,
-            priceChange: parseFloat(k.c) - parseFloat(k.o),
-            priceChangePercent: ((parseFloat(k.c) - parseFloat(k.o)) / parseFloat(k.o)) * 100,
-            high: parseFloat(k.h),
-            low: parseFloat(k.l),
-            volume: parseFloat(k.v)
-          });
-        }
+          if (onPriceUpdate) {
+            onPriceUpdate({
+              symbol: symbol,
+              price: currentPrice,
+              timestamp: msg.E,
+              priceChange: parseFloat(k.c) - parseFloat(k.o),
+              priceChangePercent: ((parseFloat(k.c) - parseFloat(k.o)) / parseFloat(k.o)) * 100,
+              high: parseFloat(k.h),
+              low: parseFloat(k.l),
+              volume: parseFloat(k.v)
+            });
+          }
 
-        if (onCandleUpdate) {
-          onCandleUpdate({
-            time: Math.floor(k.t / 1000),
-            open: parseFloat(k.o),
-            high: parseFloat(k.h),
-            low: parseFloat(k.l),
-            close: parseFloat(k.c),
-            volume: parseFloat(k.v),
-            isFinal: k.x
-          });
+          if (onCandleUpdate) {
+            onCandleUpdate({
+              time: Math.floor(k.t / 1000),
+              open: parseFloat(k.o),
+              high: parseFloat(k.h),
+              low: parseFloat(k.l),
+              close: parseFloat(k.c),
+              volume: parseFloat(k.v),
+              isFinal: k.x
+            });
+          }
         }
       }
     } catch (err) {
@@ -273,8 +282,13 @@ function connectBinanceStream(symbol, interval, onPriceUpdate, onCandleUpdate) {
   });
 
   wsKlineClient.on('close', () => {
-    console.log(`[Binance WS] Stream ${streamName} closed.`);
+    console.log(`[Binance WS] Stream ${streamName} closed. Reconectando en 3s...`);
     if (pingInterval) clearInterval(pingInterval);
+    if (activeWsSymbol === symbol && activeWsInterval === interval) {
+      klineReconnectTimeout = setTimeout(() => {
+        connectBinanceStream(symbol, interval, onPriceUpdate, onCandleUpdate);
+      }, 3000);
+    }
   });
 }
 
