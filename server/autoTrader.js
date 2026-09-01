@@ -80,13 +80,19 @@ class AutoTrader {
     const config = getConfig();
     const currentWallet = paperEngine.getAccountSummary();
     const openSymbols = currentWallet.positions.map(p => p.symbol);
+    const requiredMarginPerTrade = (currentWallet.balance * (config.riskPerTradePercent || 10)) / 100;
+    const hasMarginForNewTrades = currentWallet.availableMargin >= Math.min(requiredMarginPerTrade * 0.8, 50);
 
     let symbolsToScan = [];
 
     if (specificSymbol) {
       symbolsToScan = [specificSymbol];
+    } else if (!hasMarginForNewTrades && openSymbols.length > 0) {
+      // CAPITAL OCCUPIED: Focus exclusively on monitoring open positions for profit exits
+      symbolsToScan = openSymbols;
+      this.log(`💤 [CAPITAL ASIGNADO 100%] ${openSymbols.length} operaciones activas ($${currentWallet.availableMargin.toFixed(2)} libre). Monitoreando salidas en TP/SL para liberar capital...`, 'info');
     } else {
-      // 1. DYNAMIC MARKET DISCOVERY: Search Binance Futures for trending, high volume & breakout coins
+      // CAPITAL AVAILABLE: Dynamic market discovery across Binance Futures & Wall St
       let discoveredTrending = [];
       try {
         const trendingPairs = await fetchTopTrendingPairs(12);
@@ -218,13 +224,13 @@ class AutoTrader {
 
     const maxPositions = (config.maxOpenPositions !== undefined && config.maxOpenPositions > 0) ? config.maxOpenPositions : 50;
     if (maxPositions > 0 && openPositions.length >= maxPositions) {
-      this.log(`⚠️ Límite de ${maxPositions} operaciones simultáneas alcanzado.`, 'warning');
       return;
     }
 
     const availableMargin = paperEngine.getAccountSummary().availableMargin;
-    if (availableMargin <= 10) {
-      this.log(`⚠️ Margen libre agotado ($${availableMargin} USDT). Esperando cierres de operaciones para nuevas compras.`, 'warning');
+    const requiredMargin = (paperEngine.balance * (config.riskPerTradePercent || 10)) / 100;
+    if (availableMargin < Math.min(requiredMargin * 0.8, 50)) {
+      // Waiting for open positions to close - no error throw
       return;
     }
 
