@@ -985,57 +985,58 @@ function renderPositions() {
     const isWin = (pos.unrealizedPnL || 0) >= 0;
     const sign = isWin ? '+' : '';
     const cleanSym = pos.symbol.replace('USDT', '').replace('1000', '');
-    const levText = (pos.leverage && pos.leverage > 1) ? `${pos.leverage}x` : '1x (Dinero Propio)';
+    const levText = (pos.leverage && pos.leverage > 1) ? `${pos.leverage}x` : '1x Spot';
+    const closeBtnIcon = state.isAdmin ? '' : '<i data-lucide="lock" class="w-3 h-3"></i> ';
 
     return `
-      <div class="bg-[#0b0f19] p-3.5 rounded-2xl border border-[#172033] shadow-md">
-        <div class="flex items-center justify-between mb-2">
-          <div class="flex items-center gap-2">
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-black ${isLong ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">
+      <div class="bg-[#0b0f19] p-3.5 rounded-2xl border border-[#172033] shadow-md transition-all">
+        <div class="flex items-center justify-between mb-2.5">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-black shrink-0 ${isLong ? 'bg-[#00f59b]/20 text-[#00f59b]' : 'bg-[#ff4d6d]/20 text-[#ff4d6d]'}">
               ${pos.side} • ${levText}
             </span>
-            <h3 class="text-xs font-extrabold text-white">${cleanSym} <span class="text-[10px] text-[#55657e]">USDT</span></h3>
+            <h3 class="text-xs font-extrabold text-white truncate">${cleanSym} <span class="text-[10px] text-[#55657e]">USDT</span></h3>
           </div>
-          <span class="font-mono text-sm font-black ${isWin ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
+          <span class="font-mono text-sm font-black shrink-0 ${isWin ? 'text-[#00f59b]' : 'text-[#ff4d6d]'}">
             ${sign}$${pos.unrealizedPnL.toFixed(2)} <span class="text-[10px]">(${sign}${pos.unrealizedRoePercent}%)</span>
           </span>
         </div>
 
         <div class="grid grid-cols-2 gap-1.5 text-[11px] font-mono bg-[#07090e] p-2.5 rounded-xl border border-[#141b2b] mb-2.5">
-          <div class="flex justify-between">
-            <span class="text-[#6b7c93]">Tu Dinero (Margen):</span>
-            <span class="text-white font-bold">$${pos.margin} USDT</span>
+          <div class="flex justify-between items-center gap-1 min-w-0">
+            <span class="text-[#6b7c93] text-[10px] truncate">Margen:</span>
+            <span class="text-white font-bold shrink-0">$${pos.margin}</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-[#6b7c93]">Tamaño Mercado:</span>
-            <span class="text-[#00f2fe] font-bold">$${pos.positionValue || Number((pos.margin * (pos.leverage || 1)).toFixed(2))} USDT</span>
+          <div class="flex justify-between items-center gap-1 min-w-0">
+            <span class="text-[#6b7c93] text-[10px] truncate">Tamaño:</span>
+            <span class="text-[#00f2fe] font-bold shrink-0">$${pos.positionValue || Number((pos.margin * (pos.leverage || 1)).toFixed(2))}</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-[#6b7c93]">Cantidad Real:</span>
-            <span class="text-white font-bold">${pos.quantity} ${cleanSym}</span>
+          <div class="flex justify-between items-center gap-1 min-w-0">
+            <span class="text-[#6b7c93] text-[10px] truncate">Cantidad:</span>
+            <span class="text-white font-bold truncate">${typeof pos.quantity === 'number' ? pos.quantity.toFixed(pos.quantity < 1 ? 4 : 2) : pos.quantity} ${cleanSym}</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-[#6b7c93]">Precio Entrada:</span>
-            <span class="text-white font-bold">$${formatPrice(pos.entryPrice)}</span>
+          <div class="flex justify-between items-center gap-1 min-w-0">
+            <span class="text-[#6b7c93] text-[10px] truncate">Entrada:</span>
+            <span class="text-white font-bold shrink-0">$${formatPrice(pos.entryPrice)}</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-[#6b7c93]">Precio Actual:</span>
-            <span class="text-white font-bold">$${formatPrice(pos.currentPrice)}</span>
+          <div class="flex justify-between items-center gap-1 min-w-0">
+            <span class="text-[#6b7c93] text-[10px] truncate">Actual:</span>
+            <span class="text-white font-bold shrink-0">$${formatPrice(pos.currentPrice)}</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-[#00f59b]">Take Profit:</span>
-            <span class="text-[#00f59b] font-bold">$${formatPrice(pos.takeProfit)}</span>
+          <div class="flex justify-between items-center gap-1 min-w-0">
+            <span class="text-[#00f59b] text-[10px] truncate">Take Profit:</span>
+            <span class="text-[#00f59b] font-bold shrink-0">$${formatPrice(pos.takeProfit)}</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-[#ff4d6d]">Stop Loss:</span>
-            <span class="text-[#ff4d6d] font-bold">$${formatPrice(pos.stopLoss)}</span>
+          <div class="flex justify-between items-center gap-1 min-w-0 col-span-2 sm:col-span-1">
+            <span class="text-[#ff4d6d] text-[10px] truncate">Stop Loss:</span>
+            <span class="text-[#ff4d6d] font-bold shrink-0">$${formatPrice(pos.stopLoss)}</span>
           </div>
         </div>
 
-        <div class="flex items-center justify-between">
-          <span class="text-[10px] text-[#8899a6] font-mono">Poder de compra: <b class="text-[#00f2fe]">${levText}</b></span>
-          <button onclick="closePosition('${pos.id}')" class="px-3 py-1 rounded-lg text-xs font-bold bg-[#ff4d6d]/15 text-[#ff4d6d] hover:bg-[#ff4d6d] hover:text-white transition-all">
-            Cerrar Posición
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[10px] text-[#8899a6] font-mono">Modo: <b class="text-[#00f2fe]">${levText} (Dinero Propio)</b></span>
+          <button onclick="closePosition('${pos.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#ff4d6d]/15 text-[#ff4d6d] hover:bg-[#ff4d6d] hover:text-white flex items-center gap-1 transition-all shrink-0">
+            ${closeBtnIcon}<span>Cerrar</span>
           </button>
         </div>
       </div>

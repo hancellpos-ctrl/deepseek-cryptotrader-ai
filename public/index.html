@@ -21,45 +21,45 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <!-- Custom Stylesheet -->
-  <link rel="stylesheet" href="/style.css?v=1.5">
+  <link rel="stylesheet" href="/style.css?v=1.6">
 </head>
 <body class="bg-[#07090e] text-[#f0f4f8] antialiased select-none min-h-screen font-sans">
 
   <!-- ============================================================== -->
   <!-- TOP APP HEADER -->
   <!-- ============================================================== -->
-  <header class="top-header px-4 py-2.5 flex items-center justify-between">
-    <div class="flex items-center gap-2.5">
-      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#00f2fe] to-[#00f59b] flex items-center justify-center shadow-[0_0_12px_rgba(0,242,254,0.3)]">
+  <header class="top-header px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2">
+    <div class="flex items-center gap-2 min-w-0">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#00f2fe] to-[#00f59b] flex items-center justify-center shadow-[0_0_12px_rgba(0,242,254,0.3)] shrink-0">
         <span class="text-xs font-black text-black">WP</span>
       </div>
-      <div>
-        <h1 class="font-extrabold text-sm tracking-wide text-white leading-tight">WP <span class="text-[#00f2fe]">AI</span></h1>
-        <div class="flex items-center gap-1.5 text-[10px] text-[#6b7c93] font-mono">
-          <span class="w-1.5 h-1.5 rounded-full bg-[#00f59b] pulse-dot"></span>
-          <span id="binanceWsStatus" class="text-[#00f59b]">Binance Live</span>
+      <div class="min-w-0">
+        <h1 class="font-extrabold text-sm tracking-wide text-white leading-tight flex items-center gap-1">WP <span class="text-[#00f2fe]">AI</span></h1>
+        <div class="flex items-center gap-1.5 text-[10px] text-[#6b7c93] font-mono whitespace-nowrap">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#00f59b] pulse-dot shrink-0"></span>
+          <span id="binanceWsStatus" class="text-[#00f59b] font-semibold">Binance Live</span>
           <span>•</span>
-          <span class="text-[#00f2fe] font-bold">Spot</span>
+          <span class="text-[#00f2fe] font-bold">1x Spot</span>
         </div>
       </div>
     </div>
 
-    <div class="flex items-center gap-1.5">
+    <div class="flex items-center gap-1.5 shrink-0">
       <!-- Auth Status & Security Button (Admin vs Visual) -->
-      <button id="btnAuthMode" onclick="handleAuthButtonClick()" type="button" class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all border border-[#172033] bg-[#0d121e] hover:border-[#00f2fe]/40" title="Control de Acceso / PIN">
-        <i data-lucide="eye" id="authModeIcon" class="w-3.5 h-3.5 text-amber-400"></i>
-        <span id="authModeText" class="text-[11px] font-mono text-amber-400 font-bold">Modo Visual</span>
+      <button id="btnAuthMode" onclick="handleAuthButtonClick()" type="button" class="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl text-xs font-bold transition-all border border-amber-500/30 bg-amber-500/10 hover:border-amber-500/60" title="Control de Acceso / PIN">
+        <i data-lucide="eye" id="authModeIcon" class="w-3.5 h-3.5 text-amber-400 shrink-0"></i>
+        <span id="authModeText" class="text-[10px] sm:text-[11px] font-mono text-amber-400 font-bold">Visual</span>
       </button>
 
       <!-- Theme Switch Button (Dark / Light) -->
-      <button id="themeToggleBtn" onclick="toggleTheme()" type="button" class="w-8 h-8 rounded-xl bg-[#0d121e] border border-[#172033] flex items-center justify-center text-[#8899a6] hover:text-[#00f2fe] transition-all" title="Cambiar a Modo Claro / Oscuro">
+      <button id="themeToggleBtn" onclick="toggleTheme()" type="button" class="w-8 h-8 rounded-xl bg-[#0d121e] border border-[#172033] flex items-center justify-center text-[#8899a6] hover:text-[#00f2fe] transition-all shrink-0" title="Cambiar a Modo Claro / Oscuro">
         <i data-lucide="sun" id="themeIconSun" class="w-4 h-4 text-amber-400"></i>
         <i data-lucide="moon" id="themeIconMoon" class="w-4 h-4 text-slate-400 hidden"></i>
       </button>
 
       <!-- Quick Live Status Badge -->
-      <div class="flex items-center gap-2 bg-[#0d121e] px-2.5 py-1 rounded-xl border border-[#172033]">
-        <span class="text-[9px] text-[#8899a6] block uppercase font-bold">Ganancia</span>
+      <div class="flex items-center gap-1.5 bg-[#0d121e] px-2 py-1 rounded-xl border border-[#172033] shrink-0">
+        <span class="text-[9px] text-[#8899a6] hidden sm:block uppercase font-bold">Ganancia</span>
         <span id="statTotalProfitHeader" class="font-mono font-extrabold text-xs text-[#00f59b]">+$0.00</span>
       </div>
     </div>
@@ -68,16 +68,17 @@
   <!-- ============================================================== -->
   <!-- MAIN APP VIEWS CONTAINER -->
   <!-- ============================================================== -->
-  <main class="px-3.5 py-3.5 max-w-md mx-auto">
+  <main class="px-3 sm:px-4 py-3 max-w-lg mx-auto space-y-3.5">
 
     <!-- Read-Only / Visual Mode Notification Banner -->
-    <div id="readOnlyBanner" class="card p-2.5 bg-amber-500/10 border-amber-500/30 flex items-center justify-between gap-2 text-amber-300 text-xs mb-3.5">
-      <div class="flex items-center gap-2">
+    <div id="readOnlyBanner" class="card p-2.5 bg-amber-500/10 border-amber-500/30 flex items-center justify-between gap-2 text-amber-300 text-xs">
+      <div class="flex items-center gap-2 min-w-0">
         <i data-lucide="shield-alert" class="w-4 h-4 text-amber-400 shrink-0"></i>
-        <span class="text-[11px] leading-tight"><b>Modo Solo Lectura:</b> Vista en vivo activa. Acciones bloqueadas.</span>
+        <span class="text-[11px] leading-tight truncate"><b>Modo Solo Lectura:</b> Vista en vivo activa.</span>
       </div>
-      <button onclick="openPinModal()" type="button" class="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-black text-[10px] rounded-lg shrink-0 transition-all shadow-sm">
-        Ingresar PIN
+      <button onclick="openPinModal()" type="button" class="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-black text-[10px] rounded-lg shrink-0 transition-all shadow-sm flex items-center gap-1">
+        <i data-lucide="key" class="w-3 h-3"></i>
+        <span>Ingresar PIN</span>
       </button>
     </div>
 
@@ -590,7 +591,7 @@
   <div id="toastContainer" class="fixed bottom-20 right-3 left-3 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none max-w-sm"></div>
 
   <!-- App Script -->
-  <script src="/app.js?v=1.5"></script>
+  <script src="/app.js?v=1.6"></script>
   <script>
     lucide.createIcons();
   </script>

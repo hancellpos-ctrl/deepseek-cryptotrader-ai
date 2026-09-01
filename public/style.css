@@ -448,50 +448,51 @@ html.light .btn-primary:hover {
 }
 
 /* ============================================================== */
-/* PIN SECURITY & AUTHENTICATION STYLES */
+/* PIN SECURITY & AUTHENTICATION STYLES (POLISHED FINTECH UI) */
 /* ============================================================== */
 .pin-slot {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #141b2b;
-  border: 1.5px solid #222e48;
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 2px solid #222e48;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .pin-slot.filled {
   background: #00f2fe;
   border-color: #00f2fe;
-  transform: scale(1.15);
-  box-shadow: 0 0 12px rgba(0, 242, 254, 0.7);
+  transform: scale(1.2);
+  box-shadow: 0 0 16px rgba(0, 242, 254, 0.8);
 }
 
 .pin-key {
+  height: 48px;
   background: #101625;
   border: 1px solid #1c263c;
   color: #ffffff;
   font-size: 1.25rem;
-  font-weight: 700;
-  padding: 12px 0;
+  font-weight: 800;
   border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   touch-action: manipulation;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
 }
 
 .pin-key:hover {
-  background: #182238;
-  border-color: #2a3b5c;
+  background: #18233c;
+  border-color: rgba(0, 242, 254, 0.5);
   color: #00f2fe;
 }
 
 .pin-key:active {
-  transform: scale(0.92);
-  background: #202d4a;
+  transform: scale(0.90);
+  background: #00f2fe;
+  color: #000000;
 }
 
 @keyframes shakeAnimation {
@@ -506,9 +507,10 @@ html.light .btn-primary:hover {
 
 /* Read-Only State Helpers */
 .read-only-disabled {
-  opacity: 0.55 !important;
+  opacity: 0.45 !important;
   pointer-events: none !important;
   cursor: not-allowed !important;
+  filter: grayscale(0.5);
 }
 
 /* Light Theme Adaptations for PIN Modal */
@@ -520,7 +522,7 @@ html.light .pin-slot {
 html.light .pin-slot.filled {
   background: #0284c7;
   border-color: #0284c7;
-  box-shadow: 0 0 10px rgba(2, 132, 199, 0.5);
+  box-shadow: 0 0 14px rgba(2, 132, 199, 0.6);
 }
 
 html.light .pin-key {
@@ -535,6 +537,7 @@ html.light .pin-key:hover {
 }
 
 html.light .pin-key:active {
-  background: #cbd5e1;
+  background: #0284c7;
+  color: #ffffff;
 }
 
