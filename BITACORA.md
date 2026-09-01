@@ -1,4 +1,4 @@
-﻿# 📋 BITÁCORA DE DESARROLLO Y ARQUITECTURA TÉCNICA
+# 📋 BITÁCORA DE DESARROLLO Y ARQUITECTURA TÉCNICA
 ## DeepSeek AI Autonomous CryptoTrader | Binance Futures, TradFi Stocks & SQLite Engine
 
 ---
@@ -98,79 +98,109 @@
   * Al activarse los precios en vivo, `MAGMAUSDT` alcanzó su Take Profit cerrando automáticamente con **+$14.54 USDT de ganancia**.
   * Se amplió la capacidad de operaciones simultáneas de 2 a **6 por defecto**, configurable de 1 a 30 desde Ajustes.
 
-### 🔹 Fase 12: Filtros y Ordenamiento Interactivo en Tiempo Real
-* **En Operaciones Activas:** Píldoras de ordenamiento táctil:
-  * `🕒 Recientes` | `🟢 + Ganancia` | `🔴 - Pérdida` | `🪙 Criptos` | `🏛️ Acciones`.
-* **En Historial:** Filtros por categoría de resultado:
-  * `Todos` | `🟢 Ganadoras` | `🔴 Pérdidas` | `💰 Mayor PnL`.
+### 🔹 Fase 13: Persistencia SQLite Robusta, Entradas de $100 (1x Spot), Capacidad Ampliada & Alertas Sonoras
+* **Blindaje ante Desconexiones:** Se implementó una guardia estricta en el poller y en el motor (`markPrice <= 0 || isNaN`). Anteriormente, si la conexión caía y la API devolvía 0 o null, se activaba un falso Stop Loss eliminando posiciones. Ahora las operaciones se **congelan de forma 100% segura** hasta que se restablece la conexión.
+* **Ampliación de Límite de Operaciones:** Se eliminó la restricción rígida de 2 posiciones. El nuevo límite por defecto es de **50 operaciones simultáneas** (ampliable hasta 100 en Ajustes), gobernado únicamente por el margen libre disponible.
+* **Entradas de $100 USDT (10% de Capital):** Configuración estándar de inversión por trade a **$100 USDT** en modo **1x Spot Puro** (100% dinero propio, sin comisiones de financiamiento ni liquidaciones).
+* **Alertas Sonoras (Web Audio API):** Integración de un sintetizador de audio nativo en el navegador con tonos diferenciados:
+  * 🎯 **Take Profit / Ganancia:** Campana triunfal armónica (*D5 ➔ A5 ➔ D6*).
+  * ⚡ **Apertura / Señal IA:** Doble *ping* de confirmación.
+  * 🛑 **Stop Loss:** Tono grave de precaución.
+  * Interruptor y botón de prueba interactivo en la pestaña **Ajustes**.
+* **Historial Sincronizado:** Restauración e importación de todas las operaciones históricas previas con desglose de timestamp local, ROI% y causa de cierre.
+
+### 🔹 Fase 14: Despliegue 24/7 en la Nube (Render.com + UptimeRobot + API Global Binance)
+* **Solución de Bloqueo Geográfico (Error HTTP 451):** 
+  * Binance REST (`fapi.binance.com`) bloquea por normativa las IPs de centros de datos en EE.UU. devolviendo `HTTP 451`.
+  * **Solución definitiva:** Implementación de contingencia multiruta con `https://data-api.binance.vision` (endpoint oficial de Binance para datos globales sin bloqueos de IP).
+* **Despliegue y URL Corta (`wptrader`):** Creación del servicio en la nube y configuración de la URL corta oficial:
+  👉 **`https://wptrader.onrender.com`**
+* **Sistema Anti-Sleep 24/7:** Configuración del monitor en UptimeRobot haciendo ping cada 5 minutos al endpoint `/api/status` para mantener el contenedor despierto las 24 horas del día.
 
 ---
 
-## 🏗️ 3. Arquitectura del Repositorio
+## 🌐 3. Mapa de Conexiones, Cuentas y Topología Cloud
 
 ```
-├── server/
-│   ├── server.js              # Servidor Express, WebSockets y sincronización multi-activo
-│   ├── db.js                  # Conector y esquema SQLite3 (wallet, positions, trade_history)
-│   ├── config.js              # Parámetros de riesgo, escaneo y persistencia JSON
-│   ├── binanceService.js      # Conexión REST/WS Binance (Criptos + TradFi Stocks)
-│   ├── deepseekService.js     # Cliente API de DeepSeek (V3 y R1) con prompt técnico
-│   ├── indicators.js          # Indicadores matemáticos (RSI, MACD, EMAs, Bollinger, ATR)
-│   ├── paperTradingEngine.js  # Motor simulado respaldado en SQLite (1x spot, TP/SL, Trailing)
-│   ├── autoTrader.js          # Agente autónomo de escaneo multi-mercado programado
-│   └── telegramService.js     # Notificaciones en tiempo real a Telegram
-├── public/
-│   ├── index.html             # App móvil con 4 módulos y filtros interactivos
-│   ├── style.css              # Estilos glassmorphism y diseño responsive móvil
-│   ├── app.js                 # Lógica de navegación, WebSockets y renderizado reactivo
-│   ├── manifest.json          # Manifiesto PWA para instalación como app nativa
-│   ├── sw.js                  # Service Worker PWA para caché y soporte offline
-│   └── icon.svg               # Icono vectorial de la aplicación
-├── data/                      # Base de datos SQLite y config (ignorado en Git)
-│   ├── cryptotrader.db        # Base de datos relacional SQLite
-│   └── config.json            # Configuración persistente
-├── Dockerfile                 # Contenedor Docker para despliegue en la nube
-├── docker-compose.yml         # Orquestación Docker Compose
-├── ecosystem.config.js        # Configuración de procesos PM2 para VPS
-├── deploy-vps.sh              # Script bash de instalación en 1 clic para Ubuntu/Debian
-├── .env.example               # Plantilla de variables de entorno
-└── package.json               # Dependencias de Node.js
+                               ┌────────────────────────────────────────────────────────┐
+                               │                    UPTIMEROBOT                         │
+                               │           (Cuenta: hancellpos@gmail.com)               │
+                               │        Ping HTTP GET cada 5m a /api/status             │
+                               └──────────────────────────┬─────────────────────────────┘
+                                                          │
+                                                          ▼ (Evita que Render se duerma)
+┌────────────────────────┐     ┌────────────────────────────────────────────────────────┐
+│     USUARIO / MÓVIL    │ ──► │                   RENDER WEB SERVICE                   │
+│   (Navegador / PWA)    │ ◄── │       URL: https://wptrader.onrender.com               │
+│                        │ WS  │       Servicio: wptrader (srv-dab8k5qjobas73bnkuk0)    │
+└────────────────────────┘     │       Cuenta: hancellpos@gmail.com                     │
+                               │       Workspace: My Workspace (tea-d8emabc2m8qs73930j70)
+                               └──────┬───────────────────┬───────────────────┬─────────┘
+                                      │                   │                   │
+                                      ▼                   ▼                   ▼
+                     ┌───────────────────────┐ ┌──────────────────────┐ ┌────────────────┐
+                     │   BINANCE GLOBAL API  │ │     DEEPSEEK API     │ │ SQLite ENGINE  │
+                     │ data-api.binance.vision│ │    (deepseek-chat)   │ │cryptotrader.db │
+                     │   (Precios y Velas    │ │  (Análisis Técnico   │ │  (Balance, Pos,│
+                     │  Sin bloqueo HTTP 451)│ │  y Decisiones Spot)  │ │   Historial)   │
+                     └───────────────────────┘ └──────────────────────┘ └────────────────┘
 ```
 
 ---
 
-## 🎯 4. Parámetros de Gestión de Riesgo
+## 🔑 4. Registro de Credenciales, URLs y Servicios Vinculados
 
-| Parámetro | Valor Actual | Descripción |
-|---|---|---|
-| **Balance Base** | `$1,000.00 USDT` | Capital gestionado |
-| **Meta Global de Ganancia** | `+$10.00 USDT` | Objetivo de la sesión |
-| **Margen por Operación** | `$50.00 USDT (5%)` | 95% del balance en reserva intocable |
-| **Modo de Apalancamiento** | `1x (Dinero Propio / Spot)` | Sin multiplicadores ni riesgo de liquidación |
-| **Precio de Liquidación** | `$0.00 (Inexistente)` | Imposible de liquidar al no existir deuda |
-| **Operaciones Simultáneas** | `6 (Configurable 1-30)` | Diversificación controlada |
-| **Mercados Admitidos** | Criptos + Acciones TradFi | BTC, ETH, SOL, Altcoins + TSLA, NVDA, AAPL, SPY, QQQ |
-| **Trailing Stop** | `>= +$1.50 USDT` | Sube Stop Loss a precio de entrada (+0.1%) |
-| **Take Profit Base** | `1.5%` | Ganancia real sobre los $50 USD invertidos |
-| **Stop Loss Base** | `0.8%` | Salida preventiva de bajo impacto |
-| **Umbral de Confianza IA** | `≥ 68%` | Solo entra si hay confluencia técnica estricta |
+| Servicio / Recurso | Detalle / Cuenta | URL / Identificador | Función en el Sistema |
+| :--- | :--- | :--- | :--- |
+| **Hosting en la Nube** | **Render.com** (`hancellpos@gmail.com`) | `https://wptrader.onrender.com` | Servidor Node.js 24/7 con WebSockets y SQLite |
+| **Render Service ID** | `wptrader` | `srv-dab8k5qjobas73bnkuk0` | Identificador del Web Service activo |
+| **Repositorio GitHub** | `hancellpos-ctrl/deepseek-cryptotrader-ai` | Rama: `master` | Código fuente y base de datos sincronizada |
+| **Anti-Sleep Monitor** | **UptimeRobot** (`hancellpos@gmail.com`) | `https://wptrader.onrender.com/api/status` | Envía pings cada 5 min para evitar suspensión |
+| **UptimeRobot API Key** | `u3748672-f06b1dfc6967062ede77842d` | Monitoreo y métricas | Llave de lectura de estado |
+| **API de Inteligencia** | **DeepSeek API** | Modelo: `deepseek-chat` (V3) | Análisis técnico y gestión cuantitativa |
+| **API de Mercado** | **Binance Global Whitelist** | `https://data-api.binance.vision` | Streaming de velas, tickers y precios en vivo |
+| **Base de Datos** | **SQLite3 (WAL Mode)** | `data/cryptotrader.db` | Persistencia de balance, posiciones e historial |
 
 ---
 
-## 🚀 5. Despliegue en VPS (Ubuntu / Debian)
+## 🎯 5. Parámetros de Gestión de Riesgo (Modo Spot Activo)
 
-Para desplegar la aplicación en tu servidor VPS con PM2:
+| Parámetro | Valor Configurado | Justificación Técnica |
+| :--- | :--- | :--- |
+| **Balance Base** | `$1,000.00 USDT` | Capital inicial gestionado |
+| **Inversión por Trade** | `$100.00 USDT (10%)` | 90% del capital permanece como margen libre de reserva |
+| **Apalancamiento** | `1x (Spot / Dinero Propio)` | Cero riesgo de liquidación (`Liq Price = $0.00`) |
+| **Poder de Compra Real** | `$100.00 USDT exactos` | Se adquiere el valor equivalente en el activo sin deuda |
+| **Meta Global de Ganancia** | `+$10.00 USDT` | Objetivo acumulativo de micro-operaciones |
+| **Capacidad de Operaciones** | `50 simultáneas` | Limitado únicamente por margen disponible |
+| **Stop Loss Protector** | `0.4% - 0.8%` | Salida preventiva de bajo impacto |
+| **Take Profit Base** | `0.8% - 1.5%` | Captura sistemática de ganancias |
+| **Trailing Stop** | `>= +$1.50 USDT` | Asegura ganancias moviendo el SL a Break-Even |
 
+---
+
+## 🚀 6. Instrucciones de Despliegue y Mantenimiento
+
+### A. Para desplegar actualizaciones a la Nube:
 ```bash
-# 1. Clonar el repositorio
-git clone https://github.com/hancellpos-ctrl/deepseek-cryptotrader-ai.git
-cd deepseek-cryptotrader-ai
+git add .
+git commit -m "feat: nueva mejora"
+git push origin master
+# Render detecta el push y se re-despliega solo automáticamente
+```
 
-# 2. Dar permisos y ejecutar el script de instalación
-chmod +x deploy-vps.sh
-./deploy-vps.sh
+### B. Para consultar o reiniciar desde el CLI de Render:
+```bash
+# Ver estado del servicio
+render services
+
+# Ver logs en vivo
+render logs srv-dab8k5qjobas73bnkuk0 --tail
+
+# Disparar despliegue manual
+render deploys create srv-dab8k5qjobas73bnkuk0 --confirm
 ```
 
 ---
 
-*Bitácora técnica actualizada al 31 de Agosto de 2026.*
+*Bitácora técnica actualizada al 1 de Septiembre de 2026.*
