@@ -891,13 +891,16 @@ function renderMarketPills() {
 function renderWallet() {
   const w = state.wallet;
   
-  const totalRealized = w.tradeHistory ? w.tradeHistory.reduce((acc, t) => acc + (t.realizedPnL || 0), 0) : 0;
-  const netProfit = Number((totalRealized + (w.unrealizedPnL || 0)).toFixed(2));
+  const initialBal = w.initialBalance || 1000.0;
+  const netProfit = (typeof w.netProfit === 'number') 
+    ? w.netProfit 
+    : Number(((w.equity || 1000.0) - initialBal).toFixed(2));
+
   const sign = netProfit >= 0 ? '+' : '';
   const color = netProfit >= 0 ? 'text-[#00f59b]' : 'text-[#ff4d6d]';
 
   const eqEl = document.getElementById('walletEquity');
-  if (eqEl) eqEl.innerText = '$' + w.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (eqEl) eqEl.innerText = '$' + (w.equity || 1000.0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const profHeader = document.getElementById('statTotalProfitHeader');
   if (profHeader) {
@@ -912,10 +915,10 @@ function renderWallet() {
   }
 
   const balEl = document.getElementById('walletBalance');
-  if (balEl) balEl.innerText = '$' + w.balance.toFixed(2);
+  if (balEl) balEl.innerText = '$' + (w.balance || 1000.0).toFixed(2);
 
   const availEl = document.getElementById('walletAvailableMargin');
-  if (availEl) availEl.innerText = '$' + w.availableMargin.toFixed(2);
+  if (availEl) availEl.innerText = '$' + (w.availableMargin || 1000.0).toFixed(2);
 
   const winRateEl = document.getElementById('walletWinRate');
   if (winRateEl) winRateEl.innerText = `${w.winRate || 0}%`;
@@ -934,7 +937,7 @@ function renderWallet() {
 
   // History Tab Stats
   const histTrades = document.getElementById('statHistoryTotalTrades');
-  if (histTrades) histTrades.innerText = w.tradeHistory ? w.tradeHistory.length : 0;
+  if (histTrades) histTrades.innerText = w.tradeCount || (w.tradeHistory ? w.tradeHistory.length : 0);
 
   const histWinRate = document.getElementById('statHistoryWinRate');
   if (histWinRate) histWinRate.innerText = `${w.winRate || 0}%`;

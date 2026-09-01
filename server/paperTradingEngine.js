@@ -281,11 +281,14 @@ class PaperTradingEngine {
     const profitFactor = totalLoss > 0 ? Number((totalProfit / totalLoss).toFixed(2)) : (totalProfit > 0 ? 999 : 0);
 
     const initialBalance = 1000.0;
+    const netProfit = Number((equity - initialBalance).toFixed(2));
     const totalROI = Number((((equity - initialBalance) / initialBalance) * 100).toFixed(2));
 
     return {
       balance: Number(this.balance.toFixed(2)),
+      initialBalance,
       equity,
+      netProfit,
       availableMargin,
       usedMargin: Number(totalUsedMargin.toFixed(2)),
       unrealizedPnL: Number(totalUnrealizedPnL.toFixed(2)),
