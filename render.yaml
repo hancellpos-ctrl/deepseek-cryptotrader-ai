@@ -1,8 +1,8 @@
-﻿services:
+services:
   - type: web
     name: deepseek-cryptotrader-ai
     env: node
-    plan: standard
+    plan: free
     buildCommand: npm install
     startCommand: npm start
     envVars:
