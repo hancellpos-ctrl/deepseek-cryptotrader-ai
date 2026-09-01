@@ -1,8 +1,9 @@
 const cron = require('node-cron');
 const { getConfig } = require('./config');
-const { analyzeMarketWithDeepSeek } = require('./deepseekService');
+const { analyzeMarketWithDeepSeek, generateTechnicalFallbackSignal } = require('./deepseekService');
+const { analyzeCandles } = require('./indicators');
 const paperEngine = require('./paperTradingEngine');
-const { executeRealBinanceOrder, fetchCurrentPrice, fetchTopTrendingPairs } = require('./binanceService');
+const { executeRealBinanceOrder, fetchCurrentPrice, fetchTopTrendingPairs, fetchTradFiStocks, fetchKlines, fetch24hrTicker } = require('./binanceService');
 const { sendSignalAlert, sendOrderOpenedAlert } = require('./telegramService');
 
 class AutoTrader {
@@ -14,6 +15,7 @@ class AutoTrader {
     this.latestSignals = {};
     this.logs = [];
     this.broadcastCallback = null;
+    this.aiConsultCache = {}; // Cache to avoid repeating queries within cooldown window
   }
 
   setBroadcaster(callback) {
@@ -43,7 +45,7 @@ class AutoTrader {
 
   start() {
     const config = getConfig();
-    const intervalMin = config.autoPilotIntervalMinutes || 1;
+    const intervalMin = config.autoPilotIntervalMinutes || 2;
 
     if (this.cronTask) {
       this.cronTask.stop();
@@ -52,7 +54,7 @@ class AutoTrader {
 
     const cronExpr = `*/${intervalMin} * * * *`;
     this.isRunning = true;
-    this.log(`🚀 Modo Auto-Piloto IA ACTIVADO (1x Dinero Propio). Escaneo cada ${intervalMin} min.`, 'success');
+    this.log(`🚀 Modo Auto-Piloto IA ACTIVADO (Radar Dinámico Binance + Ahorro de Tokens). Escaneo cada ${intervalMin} min.`, 'success');
 
     setTimeout(() => this.runAnalysisCycle(), 2000);
 
@@ -76,37 +78,39 @@ class AutoTrader {
     }
 
     const config = getConfig();
-    let symbolsToScan = specificSymbol ? [specificSymbol] : config.tradingPairs;
-
-    // Dynamic Discovery based on scanMode
-    if (!specificSymbol) {
-      if (config.scanMode === 'stocks') {
-        symbolsToScan = ['TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT', 'AMZNUSDT', 'METAUSDT', 'MSFTUSDT', 'SPYUSDT', 'QQQUSDT'];
-        this.log(`🏛️ [BOLSA IA] Escaneando acciones TradFi en Binance: TSLA, NVDA, AAPL, SPY, QQQ...`, 'info');
-      } else if (config.scanMode === 'all') {
-        try {
-          const trendingPairs = await fetchTopTrendingPairs(4);
-          const trendingSymbols = trendingPairs ? trendingPairs.map(t => t.symbol) : [];
-          symbolsToScan = Array.from(new Set([...trendingSymbols, 'BTCUSDT', 'SOLUSDT', 'TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT', 'SPYUSDT']));
-          this.log(`🌐 [RADAR GLOBAL] Escaneando Criptos (${trendingSymbols.join(', ') || 'BTC, SOL'}) y Acciones (TSLA, NVDA, AAPL, SPY)...`, 'info');
-        } catch (err) {
-          symbolsToScan = ['BTCUSDT', 'SOLUSDT', 'TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT'];
-        }
-      } else if (config.scanMode === 'top_trending') {
-        try {
-          const trendingPairs = await fetchTopTrendingPairs(8);
-          if (trendingPairs && trendingPairs.length > 0) {
-            const trendingSymbols = trendingPairs.map(t => t.symbol);
-            symbolsToScan = Array.from(new Set([...trendingSymbols, 'BTCUSDT', 'SOLUSDT']));
-            this.log(`🔥 [RADAR IA] Detectadas ${trendingSymbols.length} criptos en tendencia: ${trendingSymbols.join(', ')}`, 'info');
-          }
-        } catch (err) {
-          console.warn('Error fetching dynamic trending pairs, fallback to defaults:', err.message);
-        }
-      }
-    }
-
     const currentWallet = paperEngine.getAccountSummary();
+    const openSymbols = currentWallet.positions.map(p => p.symbol);
+
+    let symbolsToScan = [];
+
+    if (specificSymbol) {
+      symbolsToScan = [specificSymbol];
+    } else {
+      // 1. DYNAMIC MARKET DISCOVERY: Search Binance Futures for trending, high volume & breakout coins
+      let discoveredTrending = [];
+      try {
+        const trendingPairs = await fetchTopTrendingPairs(12);
+        if (trendingPairs && trendingPairs.length > 0) {
+          discoveredTrending = trendingPairs.map(t => t.symbol);
+        }
+      } catch (err) {
+        console.warn('[AutoTrader] Dynamic trending fetch warning:', err.message);
+      }
+
+      const stockSymbols = ['TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT', 'SPYUSDT'];
+      const coreSymbols = ['BTCUSDT', 'SOLUSDT', 'ETHUSDT'];
+
+      // Merge dynamically discovered coins + open positions + core watchlist
+      symbolsToScan = Array.from(new Set([
+        ...discoveredTrending,
+        ...openSymbols,
+        ...stockSymbols,
+        ...coreSymbols,
+        ...config.tradingPairs
+      ]));
+
+      this.log(`🔍 [RADAR DINÁMICO] Explorando ${symbolsToScan.length} activos en Binance (${discoveredTrending.slice(0, 5).join(', ')}... y Wall St)`, 'info');
+    }
 
     this.isAnalyzing = true;
     this.lastScanTime = new Date().toISOString();
@@ -115,9 +119,59 @@ class AutoTrader {
     try {
       for (const symbol of symbolsToScan) {
         try {
-          const analysis = await analyzeMarketWithDeepSeek(symbol, config.timeframe, currentWallet.positions);
-          this.latestSignals[symbol] = analysis;
+          const hasOpenPosition = openSymbols.includes(symbol);
 
+          // 2. ZERO-TOKEN SCREENING: Fetch klines and calculate technical indicators locally (free)
+          const klines = await fetchKlines(symbol, config.timeframe, 80);
+          const ticker = await fetch24hrTicker(symbol);
+          const techAnalysis = analyzeCandles(klines);
+
+          const rsi = techAnalysis.indicators.rsi?.value;
+          const vol = techAnalysis.indicators.volume;
+          const bb = techAnalysis.indicators.bollingerBands;
+
+          const isExtremeRSI = rsi !== null && (rsi <= 36 || rsi >= 64);
+          const isVolumeSurge = vol && vol.ratio >= 1.25;
+          const isTrendConfluence = Math.abs(techAnalysis.trendScore) >= 2;
+          const isBollingerExtreme = bb && (bb.percentB <= 0.05 || bb.percentB >= 0.95);
+
+          const shouldConsultAI = hasOpenPosition || isExtremeRSI || isVolumeSurge || isTrendConfluence || isBollingerExtreme;
+
+          let analysis;
+
+          if (shouldConsultAI && config.deepseekApiKey && config.deepseekApiKey.trim() !== '') {
+            // Check AI Cooldown Cache (5 min window unless price moved > 0.3%)
+            const cached = this.aiConsultCache[symbol];
+            const now = Date.now();
+            const priceChangeSinceCached = cached ? Math.abs((techAnalysis.currentPrice - cached.price) / cached.price) : 1;
+
+            if (cached && (now - cached.timestamp < 5 * 60 * 1000) && priceChangeSinceCached < 0.003) {
+              analysis = cached.signal;
+            } else {
+              // High-probability setup -> Consult DeepSeek with compressed payload
+              analysis = await analyzeMarketWithDeepSeek(symbol, config.timeframe, currentWallet.positions);
+              this.aiConsultCache[symbol] = {
+                timestamp: now,
+                price: techAnalysis.currentPrice,
+                signal: analysis
+              };
+              this.log(`🤖 [IA DEEPSEEK] Oportunidad analizada en ${symbol} (RSI: ${rsi || 'N/A'}, Tendencia: ${techAnalysis.overallTrend})`, 'info');
+            }
+          } else {
+            // Market in consolidation/neutral -> Use instant zero-token technical gatekeeper
+            const marketDataPayload = {
+              symbol: symbol.toUpperCase(),
+              timeframe: config.timeframe,
+              currentPrice: techAnalysis.currentPrice,
+              change24h: ticker ? `${ticker.priceChangePercent}%` : 'N/A',
+              indicators: techAnalysis.indicators,
+              supportResistance: techAnalysis.supportResistance,
+              technicalTrend: techAnalysis.overallTrend
+            };
+            analysis = generateTechnicalFallbackSignal(marketDataPayload, techAnalysis);
+          }
+
+          this.latestSignals[symbol] = analysis;
           this.broadcast('AI_ANALYSIS_RESULT', analysis);
 
           if (analysis.signal !== 'HOLD' && analysis.confidence >= 60) {
@@ -128,7 +182,7 @@ class AutoTrader {
             await this.evaluateAndExecuteTrade(analysis, config);
           }
         } catch (err) {
-          this.log(`Error analizando ${symbol}: ${err.message}`, 'error');
+          // Silent catch for individual pair errors to ensure continuous scan
         }
       }
     } finally {

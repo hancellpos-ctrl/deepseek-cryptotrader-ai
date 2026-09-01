@@ -46,36 +46,30 @@ async function analyzeMarketWithDeepSeek(symbol = 'BTCUSDT', timeframe = '15m', 
     return generateTechnicalFallbackSignal(marketDataPayload, techAnalysis);
   }
 
-  const systemPrompt = `Eres un gestor de fondos cuantitativo autónomo y algoritmo de alta frecuencia especializado en Binance Futures.
-Tu misión principal es llevar el balance del portafolio de $1,000.00 USDT a $1,010.00 USDT (+10 USD DE GANANCIA NETA TOTAL ACUMULADA) mediante operaciones inteligentes y de bajo riesgo:
-1. ESTRATEGIA: NO busques $10 en una sola operación arriesgada. Realiza micro-operaciones seguras (capturando +$1.00, +$1.50, +$2.50 por trade) que se acumulan progresivamente hasta llegar a la meta global de $10 USD.
-2. PRESERVACIÓN DE CAPITAL: Modo SPOT 1x (100% Dinero Propio sin apalancamiento). Asigna $100 USDT (10% del capital) por trade. Opera activamente en múltiples pares con alta confluencia técnica sin límite fijo restrictivo de operaciones mientras haya margen disponible.
-3. CONTROL DE RIESGO: Stop Loss protector ajustado (máximo -$0.80 a -$1.50 USDT de riesgo por operación).
-4. GESTIÓN AUTÓNOMA: Si ya existe una posición abierta en esta moneda ("activePositionsInPair"), evalúa si mantenerla ("HOLD") o cerrarla con ganancia/protección ("CLOSE_POSITION").
-5. APERTURAS: Solo emite "BUY_LONG" o "SELL_SHORT" si la confluencia técnica (RSI, MACD, EMAs, Volumen) es sólida (Confianza >= 68%).
-6. Explica tu razonamiento cuantitativo en español.
-
-Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura exacta (sin texto adicional):
+  const systemPrompt = `Eres un gestor cuantitativo de Binance Spot 1x ($100/trade). Meta: +$10 USD acumulados con micro-operaciones seguras.
+Evalúa los datos técnicos y responde ÚNICAMENTE este JSON:
 {
   "symbol": "${symbol.toUpperCase()}",
   "signal": "BUY_LONG" | "SELL_SHORT" | "HOLD" | "CLOSE_POSITION",
-  "confidence": 85,
+  "confidence": 80,
   "recommended_leverage": 1,
-  "entry_price": 95000.0,
-  "take_profit": 95760.0,
-  "stop_loss": 94620.0,
-  "risk_reward_ratio": "1.8:1",
-  "expected_trade_gain": "+$3.80 USDT",
+  "entry_price": ${techAnalysis.currentPrice},
+  "take_profit": 0.0,
+  "stop_loss": 0.0,
+  "risk_reward_ratio": "1.5:1",
   "market_condition": "BULLISH_MOMENTUM" | "BEARISH_BREAKDOWN" | "CONSOLIDATION_RANGE" | "OVERBOUGHT_REVERSAL" | "OVERSOLD_BOUNCE",
-  "reasoning": "Explicación clara en español de por qué este trade contribuye de forma segura a sumar hacia la meta global de $10 USD.",
-  "risk_warning": "Nivel exacto de protección o invalidación."
+  "reasoning": "Breve explicación cuantitativa en español.",
+  "risk_warning": "Nivel de invalidación."
 }`;
 
-  const userPrompt = `Analiza estos datos de mercado en vivo de ${symbol} (${timeframe}) y determina la mejor operación en Binance Futures:
-\`\`\`json
-${JSON.stringify(marketDataPayload, null, 2)}
-\`\`\`
-Responde solo con el JSON requerido.`;
+  const userPrompt = `Datos técnicos en vivo ${symbol} (${timeframe}):
+Precio: ${techAnalysis.currentPrice}, 24h: ${marketDataPayload.change24h}
+RSI: ${techAnalysis.indicators.rsi?.value || 'N/A'} (${techAnalysis.indicators.rsi?.status})
+MACD: hist=${techAnalysis.indicators.macd?.histogram || 0}
+EMAs: 9=${techAnalysis.indicators.ema?.ema9}, 21=${techAnalysis.indicators.ema?.ema21}, 50=${techAnalysis.indicators.ema?.ema50}
+Volumen Ratio: ${techAnalysis.indicators.volume?.ratio || 1.0}x
+Tendencia: ${techAnalysis.overallTrend}
+Posiciones abiertas: ${JSON.stringify(marketDataPayload.activePositionsInPair.map(p => ({ side: p.side, entry: p.entryPrice, pnl: p.unrealizedPnL })))}`;
 
   try {
     const response = await axios.post(
@@ -86,7 +80,7 @@ Responde solo con el JSON requerido.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.2, // Low temperature for consistent quantitative analysis
+        temperature: 0.15,
         response_format: { type: 'json_object' }
       },
       {
@@ -94,7 +88,7 @@ Responde solo con el JSON requerido.`;
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${config.deepseekApiKey.trim()}`
         },
-        timeout: 25000
+        timeout: 20000
       }
     );
 
@@ -103,86 +97,94 @@ Responde solo con el JSON requerido.`;
     try {
       parsedResult = JSON.parse(content);
     } catch (parseErr) {
-      // Regex extraction fallback
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         parsedResult = JSON.parse(jsonMatch[0]);
       } else {
-        throw new Error('Could not parse JSON from DeepSeek response: ' + content);
+        throw new Error('DeepSeek did not return valid JSON');
       }
     }
 
     return {
-      ...parsedResult,
+      symbol: symbol.toUpperCase(),
+      signal: parsedResult.signal || 'HOLD',
+      confidence: parsedResult.confidence || 50,
+      recommended_leverage: Number(parsedResult.recommended_leverage || 1),
+      entry_price: parsedResult.entry_price ? Number(parsedResult.entry_price) : techAnalysis.currentPrice,
+      take_profit: parsedResult.take_profit ? Number(parsedResult.take_profit) : techAnalysis.currentPrice,
+      stop_loss: parsedResult.stop_loss ? Number(parsedResult.stop_loss) : techAnalysis.currentPrice,
+      risk_reward_ratio: parsedResult.risk_reward_ratio || '1.5:1',
+      market_condition: parsedResult.market_condition || techAnalysis.overallTrend,
+      reasoning: parsedResult.reasoning || 'Análisis cuantitativo de DeepSeek AI.',
+      risk_warning: parsedResult.risk_warning || 'Operar con stop loss activo.',
       isAiGenerated: true,
       aiModel: config.deepseekModel || 'deepseek-chat',
       analyzedAt: new Date().toISOString(),
       rawMarketData: marketDataPayload
     };
   } catch (error) {
-    console.error('[DeepSeek API Error]:', error.response?.data || error.message);
-    // Fallback if DeepSeek API throws error (e.g. rate limit, invalid key)
-    const fallback = generateTechnicalFallbackSignal(marketDataPayload, techAnalysis);
-    fallback.reasoning = `[Aviso: Error conectando a DeepSeek API (${error.response?.data?.error?.message || error.message}). Usando análisis técnico algorítmico]: ` + fallback.reasoning;
-    return fallback;
+    console.error(`[DeepSeek API] Error for ${symbol}:`, error.response?.data?.error?.message || error.message);
+    return generateTechnicalFallbackSignal(marketDataPayload, techAnalysis);
   }
 }
 
-function formatPricePrecision(price) {
-  if (price === null || price === undefined || isNaN(price)) return 0;
-  const num = parseFloat(price);
-  if (num >= 1000) return Number(num.toFixed(2));
-  if (num >= 1) return Number(num.toFixed(4));
-  return Number(num.toFixed(8));
+/**
+ * Helper to format price precision
+ */
+function formatPricePrecision(val) {
+  if (val === null || val === undefined || isNaN(val)) return 0;
+  if (val < 0.001) return Number(val.toFixed(8));
+  if (val < 1) return Number(val.toFixed(4));
+  if (val < 10) return Number(val.toFixed(3));
+  return Number(val.toFixed(2));
 }
 
 /**
- * Algorithmic Technical Indicator Fallback (when no API key or during API error)
+ * Algorithmic Technical Indicator Fallback (when no API key or during API error / token-saving)
  */
 function generateTechnicalFallbackSignal(marketData, techAnalysis) {
   const { currentPrice, indicators, overallTrend, supportResistance } = techAnalysis;
   const rsi = indicators.rsi?.value || 50;
   const macd = indicators.macd;
-  const ema = indicators.ema;
   const atr = indicators.atr || (currentPrice * 0.01);
 
   let signal = 'HOLD';
   let confidence = 50;
   let condition = 'CONSOLIDATION_RANGE';
-  let reasoning = 'El mercado no presenta confluencia suficiente para una entrada de alta probabilidad.';
+  let reasoning = 'Mercado en rango o consolidación sin confluencia técnica suficiente.';
 
-  const isBullish = overallTrend.includes('BULLISH') && rsi < 65 && macd?.histogram > 0;
-  const isBearish = overallTrend.includes('BEARISH') && rsi > 35 && macd?.histogram < 0;
+  const isBullish = overallTrend.includes('BULLISH') && rsi < 68 && macd?.histogram > 0;
+  const isBearish = overallTrend.includes('BEARISH') && rsi > 32 && macd?.histogram < 0;
 
   let takeProfit = currentPrice;
   let stopLoss = currentPrice;
-  let leverage = 10;
+  const leverage = 1;
 
   if (isBullish) {
     signal = 'BUY_LONG';
-    confidence = overallTrend === 'STRONG_BULLISH' ? 82 : 72;
+    confidence = overallTrend === 'STRONG_BULLISH' ? 78 : 68;
     condition = 'BULLISH_MOMENTUM';
     stopLoss = formatPricePrecision(currentPrice - (atr * 1.5));
-    takeProfit = formatPricePrecision(currentPrice + (atr * 3.0));
-    reasoning = `Tendencia alcista confirmada (${overallTrend}). RSI en ${rsi} con espacio para subir. MACD con histograma positivo (${macd?.histogram}). EMA 9 por encima de EMA 21.`;
+    takeProfit = formatPricePrecision(currentPrice + (atr * 2.5));
+    reasoning = `Tendencia alcista (${overallTrend}). RSI en ${rsi}. MACD positivo (${macd?.histogram}). Compra Spot 1x con TP en $${takeProfit}.`;
   } else if (isBearish) {
     signal = 'SELL_SHORT';
-    confidence = overallTrend === 'STRONG_BEARISH' ? 82 : 72;
+    confidence = overallTrend === 'STRONG_BEARISH' ? 78 : 68;
     condition = 'BEARISH_BREAKDOWN';
     stopLoss = formatPricePrecision(currentPrice + (atr * 1.5));
-    takeProfit = formatPricePrecision(currentPrice - (atr * 3.0));
-    reasoning = `Tendencia bajista detectada (${overallTrend}). RSI en ${rsi} perdiendo soporte. MACD con histograma negativo (${macd?.histogram}). Presión vendedora activa.`;
+    takeProfit = formatPricePrecision(currentPrice - (atr * 2.5));
+    reasoning = `Tendencia bajista (${overallTrend}). RSI en ${rsi}. MACD negativo (${macd?.histogram}). Venta/Short con TP en $${takeProfit}.`;
   } else {
     signal = 'HOLD';
     confidence = 50;
     stopLoss = formatPricePrecision(currentPrice * 0.98);
-    takeProfit = formatPricePrecision(currentPrice * 1.03);
-    reasoning = `Mercado en fase de consolidación o lateralización. RSI neutro (${rsi}). Se recomienda esperar una ruptura de soporte (${supportResistance.supportLevels[0] || 'N/A'}) o resistencia (${supportResistance.resistanceLevels[0] || 'N/A'}).`;
+    takeProfit = formatPricePrecision(currentPrice * 1.02);
+    reasoning = `Mercado en fase neutral/lateral (RSI ${rsi}). Sin confluencia clara.`;
   }
 
   const risk = Math.abs(currentPrice - stopLoss);
   const reward = Math.abs(takeProfit - currentPrice);
-  const rrRatio = risk > 0 ? (reward / risk).toFixed(1) + ':1' : '2.0:1';
+  const rrRatio = risk > 0 ? (reward / risk).toFixed(1) + ':1' : '1.5:1';
 
   return {
     symbol: marketData.symbol,
@@ -197,12 +199,13 @@ function generateTechnicalFallbackSignal(marketData, techAnalysis) {
     reasoning,
     risk_warning: `Invalidación si el precio rompe el Stop Loss en $${stopLoss}.`,
     isAiGenerated: false,
-    aiModel: 'algorithmic_technical_fallback',
+    aiModel: 'algorithmic_technical_gatekeeper',
     analyzedAt: new Date().toISOString(),
     rawMarketData: marketData
   };
 }
 
 module.exports = {
-  analyzeMarketWithDeepSeek
+  analyzeMarketWithDeepSeek,
+  generateTechnicalFallbackSignal
 };
