@@ -363,12 +363,18 @@ function initAuth() {
   } else {
     state.isAdmin = false;
     updateAuthUI();
+    // Abrir automáticamente el modal de ingreso de PIN para que aparezca en pantalla
+    setTimeout(() => {
+      if (!state.isAdmin) {
+        openPinModal();
+      }
+    }, 400);
   }
 
   // Bind physical keyboard events for PIN modal
   document.addEventListener('keydown', (e) => {
     const pinModal = document.getElementById('pinModal');
-    if (pinModal && !pinModal.classList.contains('hidden')) {
+    if (pinModal && !pinModal.classList.contains('hidden') && pinModal.style.display !== 'none') {
       if (e.key >= '0' && e.key <= '9') {
         handlePinKey(e.key);
       } else if (e.key === 'Backspace') {
@@ -509,10 +515,11 @@ function openPinModal(pendingAction = null) {
   const card = document.getElementById('pinModalCard');
   if (modal) {
     modal.classList.remove('hidden');
-    setTimeout(() => {
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => {
       modal.classList.remove('opacity-0');
       if (card) card.classList.remove('scale-95');
-    }, 10);
+    });
   }
 
   const hiddenInput = document.getElementById('hiddenPinInput');
@@ -528,7 +535,10 @@ function closePinModal() {
   if (modal) {
     modal.classList.add('opacity-0');
     if (card) card.classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 200);
+    setTimeout(() => {
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+    }, 220);
   }
   state.pendingAction = null;
   state.pinInput = '';
