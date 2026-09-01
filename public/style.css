@@ -69,6 +69,10 @@ body {
   top: 0;
   z-index: 100;
   border-bottom: 1px solid var(--border-color);
+  padding-top: max(env(safe-area-inset-top, 0px), 16px) !important;
+  padding-bottom: 14px !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
 }
 
 /* Pulse animation */
@@ -101,7 +105,7 @@ body {
 
 /* Sort & Filter Pills */
 .sort-pill {
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-size: 10px;
   font-weight: 700;
   border-radius: 10px;
@@ -137,8 +141,8 @@ body {
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border-color);
   z-index: 100;
-  padding-top: 6px;
-  padding-bottom: max(env(safe-area-inset-bottom), 10px);
+  padding-top: 8px;
+  padding-bottom: max(env(safe-area-inset-bottom), 12px);
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -228,11 +232,11 @@ html.light body {
   color: #0f172a !important;
 }
 
-/* Header & Navigation */
+/* Header & Navigation in Light Mode */
 html.light .top-header {
-  background: rgba(255, 255, 255, 0.96) !important;
+  background: rgba(255, 255, 255, 0.98) !important;
   border-bottom: 1px solid #e2e8f0 !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 
 html.light .bottom-nav {
@@ -253,7 +257,7 @@ html.light .nav-tab-item.active .nav-icon {
   filter: drop-shadow(0 0 6px rgba(2, 132, 199, 0.4));
 }
 
-/* Cards & Hero Sections */
+/* Cards & Hero Section in Light Mode */
 html.light .card {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
@@ -284,6 +288,12 @@ html.light .bg-\[\#07090e\].rounded-xl {
   border: 1px solid #e2e8f0 !important;
 }
 
+/* Market Selector Segmented Bar */
+html.light .flex.items-center.gap-1.bg-\[\#0a0e18\] {
+  background-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+}
+
 /* Borders */
 html.light .border-\[\#172033\],
 html.light .border-\[\#1c263c\],
@@ -300,7 +310,8 @@ html.light .text-white {
 }
 
 html.light .text-\[\#f0f4f8\],
-html.light .text-\[\#e2e8f0\] {
+html.light .text-\[\#e2e8f0\],
+html.light .text-\[\#c2d0df\] {
   color: #1e293b !important;
 }
 
@@ -309,6 +320,37 @@ html.light .text-\[\#6b7c93\],
 html.light .text-\[\#5c6b7d\],
 html.light .text-\[\#55657e\] {
   color: #475569 !important;
+}
+
+/* Badges & Tags High Contrast in Light Mode */
+html.light .bg-\[\#00f59b\]\/20 {
+  background-color: #dcfce7 !important;
+  color: #15803d !important;
+  border: 1px solid #86efac !important;
+}
+
+html.light .bg-\[\#ff4d6d\]\/20 {
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #fca5a5 !important;
+}
+
+html.light .bg-\[\#ff4d6d\]\/15 {
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
+}
+
+html.light .bg-\[\#00f2fe\]\/15,
+html.light .bg-\[\#00f2fe\]\/20 {
+  background-color: #e0f2fe !important;
+  color: #0369a1 !important;
+  border: 1px solid #7dd3fc !important;
+}
+
+html.light .bg-yellow-500\/20 {
+  background-color: #fef3c7 !important;
+  color: #b45309 !important;
+  border: 1px solid #fde68a !important;
 }
 
 /* Green & Red Accents in Light Mode */
