@@ -1,10 +1,10 @@
-﻿FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Copy source code
 COPY . .
