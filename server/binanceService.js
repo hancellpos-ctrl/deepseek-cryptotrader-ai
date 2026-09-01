@@ -3,7 +3,12 @@ const WebSocket = require('ws');
 const crypto = require('crypto');
 const { getConfig } = require('./config');
 
-const BINANCE_FUTURES_REST = 'https://fapi.binance.com';
+const REST_HOSTS = [
+  { base: 'https://data-api.binance.vision', isFutures: false }, // Official Binance Global Whitelisted API (Zero geo-blocks / 451)
+  { base: 'https://api.binance.com', isFutures: false },
+  { base: 'https://fapi.binance.com', isFutures: true }
+];
+
 const BINANCE_FUTURES_WS = 'wss://fstream.binance.com/ws';
 
 let wsKlineClient = null;
@@ -19,126 +24,149 @@ function getCachedPrice(symbol) {
 }
 
 /**
- * Fetch historical Kline/Candlestick data
+ * Fetch historical Kline/Candlestick data with geo-unrestricted fallback
  */
 async function fetchKlines(symbol = 'BTCUSDT', interval = '15m', limit = 100) {
-  try {
-    const url = `${BINANCE_FUTURES_REST}/fapi/v1/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=${limit}`;
-    const response = await axios.get(url, { timeout: 8000 });
-    return response.data;
-  } catch (error) {
-    console.error(`Error fetching klines for ${symbol}:`, error.message);
-    throw error;
+  const sym = symbol.toUpperCase();
+  for (const host of REST_HOSTS) {
+    try {
+      const endpoint = host.isFutures ? '/fapi/v1/klines' : '/api/v3/klines';
+      const url = `${host.base}${endpoint}?symbol=${sym}&interval=${interval}&limit=${limit}`;
+      const response = await axios.get(url, { timeout: 6000 });
+      if (Array.isArray(response.data) && response.data.length > 0) {
+        return response.data;
+      }
+    } catch (error) {
+      // Try next endpoint on 451, timeout or error
+    }
   }
+  throw new Error(`Error fetching klines for ${symbol}: All endpoints failed.`);
 }
 
 /**
- * Fetch 24h Ticker statistics for a symbol
+ * Fetch 24h Ticker statistics for a symbol with fallback
  */
 async function fetch24hrTicker(symbol = 'BTCUSDT') {
-  try {
-    const url = `${BINANCE_FUTURES_REST}/fapi/v1/ticker/24hr?symbol=${symbol.toUpperCase()}`;
-    const response = await axios.get(url, { timeout: 5000 });
-    return {
-      symbol: response.data.symbol,
-      lastPrice: parseFloat(response.data.lastPrice),
-      priceChange: parseFloat(response.data.priceChange),
-      priceChangePercent: parseFloat(response.data.priceChangePercent),
-      highPrice: parseFloat(response.data.highPrice),
-      lowPrice: parseFloat(response.data.lowPrice),
-      volume: parseFloat(response.data.volume),
-      quoteVolume: parseFloat(response.data.quoteVolume)
-    };
-  } catch (error) {
-    console.error(`Error fetching 24hr ticker for ${symbol}:`, error.message);
-    return null;
+  const sym = symbol.toUpperCase();
+  for (const host of REST_HOSTS) {
+    try {
+      const endpoint = host.isFutures ? '/fapi/v1/ticker/24hr' : '/api/v3/ticker/24hr';
+      const url = `${host.base}${endpoint}?symbol=${sym}`;
+      const response = await axios.get(url, { timeout: 5000 });
+      if (response.data && response.data.symbol) {
+        return {
+          symbol: response.data.symbol,
+          lastPrice: parseFloat(response.data.lastPrice),
+          priceChange: parseFloat(response.data.priceChange),
+          priceChangePercent: parseFloat(response.data.priceChangePercent),
+          highPrice: parseFloat(response.data.highPrice),
+          lowPrice: parseFloat(response.data.lowPrice),
+          volume: parseFloat(response.data.volume),
+          quoteVolume: parseFloat(response.data.quoteVolume)
+        };
+      }
+    } catch (error) {}
   }
+  return null;
 }
 
 /**
- * Fetch top trending, high volume and breakout pairs on Binance Futures
+ * Fetch top trending, high volume and breakout pairs
  */
 async function fetchTopTrendingPairs(limit = 12, minQuoteVolume = 20000000) {
-  try {
-    const url = `${BINANCE_FUTURES_REST}/fapi/v1/ticker/24hr`;
-    const response = await axios.get(url, { timeout: 8000 });
-    const usdtPairs = response.data
-      .filter(item => item.symbol.endsWith('USDT') && parseFloat(item.quoteVolume) >= minQuoteVolume)
-      .sort((a, b) => Math.abs(parseFloat(b.priceChangePercent)) - Math.abs(parseFloat(a.priceChangePercent)))
-      .slice(0, limit)
-      .map(item => ({
-        symbol: item.symbol,
-        lastPrice: parseFloat(item.lastPrice),
-        priceChangePercent: parseFloat(item.priceChangePercent),
-        quoteVolume: parseFloat(item.quoteVolume)
-      }));
-    return usdtPairs;
-  } catch (error) {
-    console.error('Error fetching trending pairs:', error.message);
-    return [];
+  for (const host of REST_HOSTS) {
+    try {
+      const endpoint = host.isFutures ? '/fapi/v1/ticker/24hr' : '/api/v3/ticker/24hr';
+      const url = `${host.base}${endpoint}`;
+      const response = await axios.get(url, { timeout: 8000 });
+      if (Array.isArray(response.data)) {
+        const usdtPairs = response.data
+          .filter(item => item.symbol.endsWith('USDT') && parseFloat(item.quoteVolume) >= minQuoteVolume)
+          .sort((a, b) => Math.abs(parseFloat(b.priceChangePercent)) - Math.abs(parseFloat(a.priceChangePercent)))
+          .slice(0, limit)
+          .map(item => ({
+            symbol: item.symbol,
+            lastPrice: parseFloat(item.lastPrice),
+            priceChangePercent: parseFloat(item.priceChangePercent),
+            quoteVolume: parseFloat(item.quoteVolume)
+          }));
+        if (usdtPairs.length > 0) return usdtPairs;
+      }
+    } catch (error) {}
   }
+  return [];
 }
 
 /**
- * Fetch TradFi Stock Perpetuals on Binance (TSLA, NVDA, AAPL, SPY, QQQ, etc.)
+ * Fetch TradFi Stock Perpetuals on Binance
  */
 async function fetchTradFiStocks() {
   const stockSymbols = ['TSLAUSDT', 'NVDAUSDT', 'AAPLUSDT', 'AMZNUSDT', 'METAUSDT', 'MSFTUSDT', 'SPYUSDT', 'QQQUSDT', 'COINUSDT', 'MSTRUSDT', 'AMDUSDT'];
-  try {
-    const url = `${BINANCE_FUTURES_REST}/fapi/v1/ticker/24hr`;
-    const response = await axios.get(url, { timeout: 8000 });
-    const stockTickers = response.data
-      .filter(item => stockSymbols.includes(item.symbol))
-      .map(item => ({
-        symbol: item.symbol,
-        lastPrice: parseFloat(item.lastPrice),
-        priceChangePercent: parseFloat(item.priceChangePercent),
-        quoteVolume: parseFloat(item.quoteVolume)
-      }));
-    return stockTickers;
-  } catch (error) {
-    console.error('Error fetching TradFi stocks:', error.message);
-    return [];
+  for (const host of REST_HOSTS) {
+    try {
+      const endpoint = host.isFutures ? '/fapi/v1/ticker/24hr' : '/api/v3/ticker/24hr';
+      const url = `${host.base}${endpoint}`;
+      const response = await axios.get(url, { timeout: 8000 });
+      if (Array.isArray(response.data)) {
+        const stockTickers = response.data
+          .filter(item => stockSymbols.includes(item.symbol))
+          .map(item => ({
+            symbol: item.symbol,
+            lastPrice: parseFloat(item.lastPrice),
+            priceChangePercent: parseFloat(item.priceChangePercent),
+            quoteVolume: parseFloat(item.quoteVolume)
+          }));
+        if (stockTickers.length > 0) return stockTickers;
+      }
+    } catch (error) {}
   }
+  return [];
 }
 
 /**
- * Fetch current prices for multiple symbols (or all if symbols is null)
+ * Fetch current prices for multiple symbols with fallback
  */
 async function fetchAllPrices(symbols = null) {
-  try {
-    const url = `${BINANCE_FUTURES_REST}/fapi/v1/ticker/price`;
-    const response = await axios.get(url, { timeout: 5000 });
-    const priceMap = {};
-    response.data.forEach(item => {
-      const p = parseFloat(item.price);
-      currentPrices[item.symbol] = p;
-      if (!symbols || symbols.includes(item.symbol)) {
-        priceMap[item.symbol] = p;
+  for (const host of REST_HOSTS) {
+    try {
+      const endpoint = host.isFutures ? '/fapi/v1/ticker/price' : '/api/v3/ticker/price';
+      const url = `${host.base}${endpoint}`;
+      const response = await axios.get(url, { timeout: 5000 });
+      if (Array.isArray(response.data)) {
+        const priceMap = {};
+        response.data.forEach(item => {
+          const p = parseFloat(item.price);
+          currentPrices[item.symbol] = p;
+          if (!symbols || symbols.includes(item.symbol)) {
+            priceMap[item.symbol] = p;
+          }
+        });
+        return symbols ? priceMap : currentPrices;
       }
-    });
-    return symbols ? priceMap : currentPrices;
-  } catch (error) {
-    console.error('Error fetching all prices:', error.message);
-    return currentPrices;
+    } catch (error) {}
   }
+  return currentPrices;
 }
 
 /**
- * Fetch single symbol current price
+ * Fetch single symbol current price with fallback
  */
 async function fetchCurrentPrice(symbol = 'BTCUSDT') {
-  try {
-    if (currentPrices[symbol]) return currentPrices[symbol];
-    const url = `${BINANCE_FUTURES_REST}/fapi/v1/ticker/price?symbol=${symbol.toUpperCase()}`;
-    const response = await axios.get(url, { timeout: 5000 });
-    const price = parseFloat(response.data.price);
-    currentPrices[symbol] = price;
-    return price;
-  } catch (error) {
-    console.error(`Error fetching price for ${symbol}:`, error.message);
-    return currentPrices[symbol] || null;
+  if (currentPrices[symbol]) return currentPrices[symbol];
+  const sym = symbol.toUpperCase();
+  for (const host of REST_HOSTS) {
+    try {
+      const endpoint = host.isFutures ? '/fapi/v1/ticker/price' : '/api/v3/ticker/price';
+      const url = `${host.base}${endpoint}?symbol=${sym}`;
+      const response = await axios.get(url, { timeout: 5000 });
+      if (response.data && response.data.price) {
+        const price = parseFloat(response.data.price);
+        currentPrices[symbol] = price;
+        return price;
+      }
+    } catch (error) {}
   }
+  return currentPrices[symbol] || null;
 }
 
 /**
