@@ -202,10 +202,10 @@ body {
 }
 
 /* ============================================================== */
-/* ☀️ LIGHT MODE (MODO CLARO) STYLES & OVERRIDES */
+/* ☀️ LIGHT MODE (MODO CLARO) - POLISHED COMPLETE THEME */
 /* ============================================================== */
 html.light, body.light-theme {
-  --bg-main: #f3f6fb;
+  --bg-main: #f4f6fa;
   --bg-card: #ffffff;
   --bg-card-hover: #f8fafc;
   --bg-panel: #ffffff;
@@ -224,25 +224,45 @@ html.light, body.light-theme {
 }
 
 html.light body {
-  background-color: #f1f5f9 !important;
+  background-color: #f4f6fa !important;
   color: #0f172a !important;
 }
 
+/* Header & Navigation */
 html.light .top-header {
   background: rgba(255, 255, 255, 0.96) !important;
   border-bottom: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
 html.light .bottom-nav {
-  background: rgba(255, 255, 255, 0.96) !important;
+  background: rgba(255, 255, 255, 0.98) !important;
   border-top: 1px solid #e2e8f0 !important;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
 }
 
+html.light .nav-tab-item {
+  color: #64748b !important;
+}
+
+html.light .nav-tab-item.active {
+  color: #0284c7 !important;
+}
+
+html.light .nav-tab-item.active .nav-icon {
+  filter: drop-shadow(0 0 6px rgba(2, 132, 199, 0.4));
+}
+
+/* Cards & Hero Sections */
 html.light .card {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light .bg-gradient-to-b.from-\[\#0f1523\].to-\[\#0a0e18\] {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
 html.light .bg-\[\#07090e\],
@@ -251,22 +271,30 @@ html.light .bg-\[\#0d121e\],
 html.light .bg-\[\#0a0e18\],
 html.light .bg-\[\#090d16\],
 html.light .bg-\[\#0f1523\],
-html.light .bg-\[\#121828\] {
+html.light .bg-\[\#121828\],
+html.light .bg-\[\#0b0f19\] {
   background-color: #ffffff !important;
 }
 
-html.light .bg-gradient-to-b.from-\[\#0f1523\].to-\[\#0a0e18\] {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+html.light .grid.bg-\[\#07090e\],
+html.light .grid.bg-\[\#0a0e18\],
+html.light .bg-\[\#07090e\].p-2\.5,
+html.light .bg-\[\#07090e\].rounded-xl {
+  background-color: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
+/* Borders */
 html.light .border-\[\#172033\],
 html.light .border-\[\#1c263c\],
 html.light .border-\[\#141b2b\],
+html.light .border-\[\#151c2c\],
 html.light .border-\[\#222e48\],
 html.light .border-\[\#1e293b\] {
   border-color: #e2e8f0 !important;
 }
 
+/* Typography & Contrast */
 html.light .text-white {
   color: #0f172a !important;
 }
@@ -278,10 +306,29 @@ html.light .text-\[\#e2e8f0\] {
 
 html.light .text-\[\#8899a6\],
 html.light .text-\[\#6b7c93\],
-html.light .text-\[\#5c6b7d\] {
+html.light .text-\[\#5c6b7d\],
+html.light .text-\[\#55657e\] {
   color: #475569 !important;
 }
 
+/* Green & Red Accents in Light Mode */
+html.light .text-\[\#00f59b\] {
+  color: #16a34a !important;
+}
+
+html.light .text-\[\#ff4d6d\] {
+  color: #dc2626 !important;
+}
+
+html.light .text-\[\#00f2fe\] {
+  color: #0284c7 !important;
+}
+
+html.light .text-\[\#ffd166\] {
+  color: #d97706 !important;
+}
+
+/* Form Controls & Inputs */
 html.light input,
 html.light select,
 html.light textarea {
@@ -290,23 +337,70 @@ html.light textarea {
   color: #0f172a !important;
 }
 
+html.light input:focus,
+html.light select:focus,
+html.light textarea:focus {
+  border-color: #0284c7 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
+
 html.light input::placeholder {
   color: #94a3b8 !important;
 }
 
+/* Progress bar in light mode */
+html.light .bg-\[\#121929\] {
+  background-color: #e2e8f0 !important;
+}
+
+/* Sort & Filter Pills */
+html.light .sort-pill {
+  background: #ffffff !important;
+  color: #475569 !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+html.light .sort-pill:hover {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.light .sort-pill.active {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25) !important;
+}
+
+/* Trending coins horizontal pills */
+html.light .trending-pill {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+html.light .trending-pill:hover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Terminal & Logs Container */
 html.light .terminal-box {
   background: #f8fafc !important;
   border: 1px solid #e2e8f0 !important;
   color: #1e293b !important;
 }
 
-html.light .badge-pill {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
-  color: #475569;
+/* Primary Action Buttons */
+html.light .btn-primary {
+  background: linear-gradient(135deg, #0284c7 0%, #059669 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25) !important;
 }
 
-html.light .badge-pill.active {
-  background: #0284c7 !important;
-  color: #ffffff !important;
+html.light .btn-primary:hover {
+  filter: brightness(1.06) !important;
 }
