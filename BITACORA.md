@@ -119,12 +119,20 @@
   1. **Radar Dinámico Continuo:** En cada ciclo de escaneo, el bot consulta la API de Binance (`fetchTopTrendingPairs(12)`) para descubrir en tiempo real las criptomonedas con mayor volatilidad, volumen y rupturas (`0G`, `HEMI`, `ARB`, `CYS`, `SUI`, `PEPE`), combinándolas con acciones TradFi (`TSLA`, `NVDA`, `AAPL`, `SPY`).
   2. **Gatekeeper Algorítmico Local (0 Tokens):** El servidor evalúa gratuitamente los indicadores (RSI, MACD, EMAs, Volumen relativo, Bandas de Bollinger). Si el mercado está plano, emite `HOLD` sin gastar tokens.
   3. **Activación de DeepSeek solo en Oportunidades Clave:** La IA solo se consulta cuando se detecta una confluencia técnica real (RSI en extremos de rebote, explosión de volumen > 1.25x, o gestión de posiciones activas).
-  4. **Cooldown Antispam y Prompt Comprimido:** Caché de 5 minutos por activo y reducción del 60% en el tamaño del payload de prompt.
+  5. **Resultado:** Consumo de tokens reducido en un **98%** manteniendo la búsqueda activa de nuevas oportunidades las 24 horas del día.
+
 ### 🔹 Fase 16: Modo Claro (Light Theme), Switcher en Cabecera & Persistencia Local
 * **Implementación de Tema Claro:** Integración de una paleta limpia, moderna y de alto contraste (`#f3f6fb`, tarjetas blancas `#ffffff`, tipografía slate `#0f172a`, bordes suaves y acentos cian/verde).
 * **Botón de Cambio Rápido en Cabecera:** Botón táctil `☀️ / 🌙` situado junto a la insignia de ganancias para alternar entre Modo Claro y Modo Oscuro con 1 solo toque.
 * **Control en la Pestaña Ajustes:** Selector de `Tema de Interfaz` en el módulo de configuración.
 * **Persistencia en `localStorage`:** La preferencia del usuario se memoriza automáticamente en el navegador (`wp_theme`).
+
+### 🔹 Fase 17: Gestor Inteligente de Margen & Espera Automática de Cierres
+* **Problema Identificado:** Cuando el capital ($1,000 USDT) estaba invertido al 100% en 9-10 posiciones activas, el bot intentaba abrir nuevas posiciones y arrojaba mensajes repetitivos de margen insuficiente.
+* **Solución Implementada:**
+  1. **Control de Flujo de Margen Previo:** Antes de iniciar cualquier escaneo o llamar a la IA, el motor verifica si `availableMargin >= Inversión por trade ($100)`.
+  2. **Modo Vigilancia Exclusiva de Salidas (0 Tokens y Cero Intentos Fallidos):** Si el margen libre está ocupado al 100%, el bot **NO busca nuevas monedas** para comprar. Se concentra al 100% en vigilar las posiciones activas para cobrar en Take Profit (+1.5%), activar Trailing Stop o ejecutar salidas protectoras.
+  3. **Desbloqueo Automático:** En el milisegundo en que una operación toca Take Profit y se cierra, el capital vuelve al margen libre y el bot reanuda inmediatamente la búsqueda y apertura del siguiente trade ganador.
 
 ---
 
