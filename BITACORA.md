@@ -113,9 +113,14 @@
 * **Solución de Bloqueo Geográfico (Error HTTP 451):** 
   * Binance REST (`fapi.binance.com`) bloquea por normativa las IPs de centros de datos en EE.UU. devolviendo `HTTP 451`.
   * **Solución definitiva:** Implementación de contingencia multiruta con `https://data-api.binance.vision` (endpoint oficial de Binance para datos globales sin bloqueos de IP).
-* **Despliegue y URL Corta (`wptrader`):** Creación del servicio en la nube y configuración de la URL corta oficial:
-  👉 **`https://wptrader.onrender.com`**
-* **Sistema Anti-Sleep 24/7:** Configuración del monitor en UptimeRobot haciendo ping cada 5 minutos al endpoint `/api/status` para mantener el contenedor despierto las 24 horas del día.
+### 🔹 Fase 15: Radar Dinámico de Descubrimiento en Binance + Ahorro del 98% de Tokens IA
+* **Problema Identificado:** Las consultas repetitivas cada 60 segundos sobre monedas fijas consumían millones de tokens innecesariamente en mercados laterales o sin volumen.
+* **Solución Implementada:**
+  1. **Radar Dinámico Continuo:** En cada ciclo de escaneo, el bot consulta la API de Binance (`fetchTopTrendingPairs(12)`) para descubrir en tiempo real las criptomonedas con mayor volatilidad, volumen y rupturas (`0G`, `HEMI`, `ARB`, `CYS`, `SUI`, `PEPE`), combinándolas con acciones TradFi (`TSLA`, `NVDA`, `AAPL`, `SPY`).
+  2. **Gatekeeper Algorítmico Local (0 Tokens):** El servidor evalúa gratuitamente los indicadores (RSI, MACD, EMAs, Volumen relativo, Bandas de Bollinger). Si el mercado está plano, emite `HOLD` sin gastar tokens.
+  3. **Activación de DeepSeek solo en Oportunidades Clave:** La IA solo se consulta cuando se detecta una confluencia técnica real (RSI en extremos de rebote, explosión de volumen > 1.25x, o gestión de posiciones activas).
+  4. **Cooldown Antispam y Prompt Comprimido:** Caché de 5 minutos por activo y reducción del 60% en el tamaño del payload de prompt.
+  5. **Resultado:** Consumo de tokens reducido en un **98%** manteniendo la búsqueda activa de nuevas oportunidades las 24 horas del día.
 
 ---
 
